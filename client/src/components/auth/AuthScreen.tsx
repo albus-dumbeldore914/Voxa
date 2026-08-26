@@ -10,8 +10,6 @@ export const AuthScreen: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [devCode, setDevCode] = useState<string | null>(null);
-  const [emailPreviewUrl, setEmailPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [timer, setTimer] = useState<number>(45);
   const [canResend, setCanResend] = useState(false);
@@ -37,8 +35,6 @@ export const AuthScreen: React.FC = () => {
 
     const res = await sendOtp(phone, email, name);
     if (res.success) {
-      setDevCode(res.code || null);
-      setEmailPreviewUrl(res.emailPreviewUrl || null);
       setStep('otp');
       setTimer(45);
       setCanResend(false);
@@ -89,12 +85,6 @@ export const AuthScreen: React.FC = () => {
     const res = await verifyOtp(phone || email, codeStr);
     if (!res.success) {
       setError(res.message);
-    }
-  };
-
-  const fillQuickDemo = () => {
-    if (devCode) {
-      setOtp(devCode.split(''));
     }
   };
 
