@@ -15,10 +15,23 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-// Middlewares
+// Dynamic CORS to support localhost, Netlify, and custom domains
+const allowedOrigins = [
+  CLIENT_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+];
+
 app.use(
   cors({
-    origin: [CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.netlify.app') || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow during production rollout
+      }
+    },
     credentials: true,
   })
 );
@@ -41,7 +54,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Initialize Real-Time Socket.IO
-initSocketService(server, [CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173']);
+initSocketService(server, ['*']);
 
 // Start Server
 server.listen(PORT, () => {
