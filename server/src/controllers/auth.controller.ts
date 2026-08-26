@@ -52,9 +52,9 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
       code, // returned so developer/user can easily verify and test in UI
       emailPreviewUrl: emailResult.previewUrl || null, // Ethereal preview link (dev mode)
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in sendOtp:', error);
-    res.status(500).json({ error: 'Failed to generate and send verification code.' });
+    res.status(500).json({ error: error?.message || 'Failed to generate and send verification code.' });
   }
 };
 
