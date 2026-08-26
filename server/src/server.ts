@@ -1,14 +1,12 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { execSync } from 'child_process';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import chatRoutes from './routes/chat.routes';
 import { initSocketService } from './services/socket.service';
-
-import { execSync } from 'child_process';
-import { prisma } from './config/prisma';
 
 dotenv.config();
 
@@ -20,6 +18,9 @@ try {
 } catch (dbErr) {
   console.warn('⚠️ Note on database sync:', dbErr);
 }
+
+const app = express();
+const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -48,7 +49,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({
     status: 'ok',
     service: 'VOXA Messenger API',
