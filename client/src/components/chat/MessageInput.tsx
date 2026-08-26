@@ -1,0 +1,126 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Smile, Paperclip, Image as ImageIcon, X } from 'lucide-react';
+
+interface MessageInputProps {
+  onSendMessage: (content: string, mediaUrl?: string) => void;
+}
+
+const COMMON_EMOJIS = ['👋', '⚡', '🔥', '💙', '🚀', '✨', '😊', '👍', '🎉', '☕', '🙌', '💯'];
+
+export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage }) => {
+  const [content, setContent] = useState('');
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleSend = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!content.trim() && !imageUrl) return;
+
+    onSendMessage(content.trim(), imageUrl || undefined);
+    setContent('');
+    setImageUrl('');
+    setShowEmoji(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleAddEmoji = (emoji: string) => {
+    setContent((prev) => prev + emoji);
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="p-3 md:p-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-sky-100 dark:border-slate-800 relative transition-colors duration-300">
+      {/* Emoji Picker Popup */}
+      {showEmoji && (
+        <div className="absolute bottom-full left-4 mb-2 p-3 bg-white dark:bg-slate-800 border border-sky-100 dark:border-slate-700 rounded-2xl shadow-xl shadow-sky-950/10 dark:shadow-black/40 flex flex-wrap gap-2 max-w-xs z-30 animate-slide-up">
+          {COMMON_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => handleAddEmoji(emoji)}
+              className="text-xl hover:scale-125 transition-transform p-1.5 rounded-lg hover:bg-sky-50 dark:hover:bg-slate-700"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Image URL preview badge if attached */}
+      {imageUrl && (
+        <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 rounded-xl text-xs text-sky-700 dark:text-sky-300">
+          <ImageIcon className="w-3.5 h-3.5" />
+          <span className="truncate max-w-[200px]">Image attached</span>
+          <button
+            type="button"
+            onClick={() => setImageUrl('')}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      <form onSubmit={handleSend} className="flex items-center gap-2">
+        {/* Attachment Toggle */}
+        <button
+          type="button"
+          onClick={() => {
+            const sample = prompt('Enter Image URL to attach (or leave blank to cancel):', 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=600&auto=format&fit=crop&q=80');
+            if (sample) setImageUrl(sample);
+          }}
+          className="p-2.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
+          title="Attach Image"
+        >
+          <Paperclip className="w-5 h-5" />
+        </button>
+
+        {/* Emoji Button */}
+        <button
+          type="button"
+          onClick={() => setShowEmoji(!showEmoji)}
+          className={`p-2.5 rounded-xl transition-colors ${
+            showEmoji ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-slate-800' : 'text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800'
+          }`}
+          title="Insert Emoji"
+        >
+          <Smile className="w-5 h-5" />
+        </button>
+
+        {/* Message Input Field */}
+        <div className="flex-1 relative">
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Type a message..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full pl-4 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+          />
+        </div>
+
+        {/* Send Button */}
+        <button
+          type="submit"
+          disabled={!content.trim() && !imageUrl}
+          className="p-2.5 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-700 hover:to-sky-600 disabled:opacity-40 disabled:hover:from-sky-600 disabled:hover:to-sky-500 text-white rounded-xl shadow-md shadow-sky-500/20 active:scale-95 transition-all flex items-center justify-center"
+          title="Send message"
+        >
+          <Send className="w-5 h-5" />
+        </button>
+      </form>
+    </div>
+  );
+};
