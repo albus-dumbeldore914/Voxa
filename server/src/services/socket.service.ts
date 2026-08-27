@@ -129,6 +129,7 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
       content: string;
       mediaUrl?: string;
       senderId?: string;
+      tempId?: string;
     }) => {
       try {
         const senderId = user?.id || data.senderId;
@@ -174,17 +175,24 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
           createdAt: newMessage.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
 
-        // 1. Broadcast to conversation room
-        io.to(`conv:${data.conversationId}`).emit('receive_message', formattedMessage);
-
-        // 2. Broadcast directly to all member channels
-        for (const member of members) {
-          io.to(`user:${member.userId}`).emit('receive_message', formattedMessage);
-          io.to(`user:${member.userId}`).emit('conversation_updated', {
-            conversationId: data.conversationId,
-            lastMessage: formattedMessage,
-          });
+        // 1. Echo back to SENDER with tempId so they can replace optimistic message
+        if (data.tempId) {
+          io.to(`user:${senderId}`).emit('receive_message', { ...formattedMessage, tempId: data.tempId });
         }
+
+        // 2. Broadcast to OTHER members (not sender — they already got their echo above)
+        for (const member of members) {
+          if (member.userId !== senderId) {
+            io.to(`user:${member.userId}`).emit('receive_message', formattedMessage);
+            io.to(`user:${member.userId}`).emit('conversation_updated', {
+              conversationId: data.conversationId,
+              lastMessage: formattedMessage,
+            });
+          }
+        }
+
+        // 3. Also broadcast to conversation room (for any other listeners)
+        socket.to(`conv:${data.conversationId}`).emit('receive_message', formattedMessage);
 
         console.log(`[Socket.IO] ✉️ Message delivered (${formattedMessage.status}) in conv:${data.conversationId}`);
       } catch (err) {

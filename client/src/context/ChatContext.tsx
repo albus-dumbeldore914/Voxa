@@ -35,6 +35,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const activeConvRef = useRef<string | null>(null);
   activeConvRef.current = activeConversationId;
 
+  // Track temp IDs for messages we sent optimistically, so socket echo replaces them instead of duplicating
+  const pendingTempIds = useRef<Set<string>>(new Set());
+
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const messages = activeConversationId ? allMessages[activeConversationId] || [] : [];
 
@@ -102,22 +105,43 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socket.emit('join_conversation', activeConversationId);
     }
 
-    const handleReceiveMessage = (msg: Message) => {
-      console.log('[Socket.IO] ✉️ Received incoming message:', msg);
+    const handleReceiveMessage = (msg: Message & { tempId?: string }) => {
+      console.log('[Socket.IO] ✉️ Received message:', msg.id, '| sender:', msg.senderId, '| me:', user.id);
 
-      // Play chime for incoming messages from the other user
-      if (msg.senderId !== user.id) {
-        sounds.playReceived();
+      if (msg.senderId === user.id) {
+        // This is our own message echoed back from the server with the real DB id.
+        // Replace the optimistic temp message instead of adding a duplicate.
+        const tempId = msg.tempId;
+        if (tempId) pendingTempIds.current.delete(tempId);
 
-        // 1. Acknowledge delivery immediately so sender sees Delivered (✓✓)
-        socket.emit('message_delivered', {
-          messageId: msg.id,
-          conversationId: msg.conversationId,
-          senderId: msg.senderId,
+        setAllMessages((prev) => {
+          const existingList = prev[msg.conversationId] || [];
+          // If a message with this real id already exists, skip
+          if (existingList.some((m) => m.id === msg.id)) return prev;
+          // Replace the temp message if it exists, otherwise skip (already cleaned up)
+          const idx = tempId ? existingList.findIndex((m) => m.id === tempId) : -1;
+          if (idx !== -1) {
+            const updated = [...existingList];
+            updated[idx] = msg;
+            return { ...prev, [msg.conversationId]: updated };
+          }
+          // No temp found — still don't duplicate, just return as-is
+          return prev;
         });
+        return; // Don't play chime or emit delivery for own messages
       }
 
-      // 2. Append message to store
+      // Incoming message from the OTHER user
+      sounds.playReceived();
+
+      // Acknowledge delivery immediately so sender sees Delivered (✓✓)
+      socket.emit('message_delivered', {
+        messageId: msg.id,
+        conversationId: msg.conversationId,
+        senderId: msg.senderId,
+      });
+
+      // Append message to store (deduplicate by id)
       setAllMessages((prev) => {
         const existingList = prev[msg.conversationId] || [];
         if (existingList.some((m) => m.id === msg.id)) {
@@ -350,6 +374,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
+    // Track this temp ID so when the socket echoes back the real message we replace it
+    pendingTempIds.current.add(tempId);
+
     // Optimistic UI update
     setAllMessages((prev) => ({
       ...prev,
@@ -366,33 +393,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return [updated, ...filtered];
     });
 
-    // 1. Emit real-time message via Socket.IO
+    // Only emit via Socket.IO — server persists to DB and broadcasts receive_message
+    // Do NOT also call REST API — that causes duplicate messages
     const socket = getSocket();
     socket.emit('send_message', {
       conversationId: activeConversation.id,
       senderId: user.id,
       content,
       mediaUrl,
+      tempId, // Pass tempId so we can match the echo back
     });
-
-    // 2. Persist to backend database via REST API
-    try {
-      const res = await apiClient.post(`/chat/conversations/${activeConversation.id}/messages`, {
-        content,
-        mediaUrl,
-      });
-      if (res.data?.message) {
-        const persistedMsg = res.data.message;
-        setAllMessages((prev) => ({
-          ...prev,
-          [activeConversation.id]: (prev[activeConversation.id] || []).map((m) =>
-            m.id === tempId ? persistedMsg : m
-          ),
-        }));
-      }
-    } catch (err) {
-      console.error('[ChatContext] Failed to persist message:', err);
-    }
   };
 
   const clearChat = async (conversationId: string) => {
