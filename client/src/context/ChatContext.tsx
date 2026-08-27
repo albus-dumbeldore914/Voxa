@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Conversation, Message, User } from '../types';
 import { useAuth } from './AuthContext';
 import { sounds } from '../utils/sound';
@@ -17,7 +17,9 @@ interface ChatContextType {
   startNewConversation: (targetUser: User) => Promise<void>;
   markAsRead: (conversationId: string) => void;
   emitTyping: (isTyping: boolean) => void;
+  clearChat: (conversationId: string) => Promise<void>;
   searchUsers: (query: string) => Promise<User[]>;
+  refreshConversations: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -29,113 +31,185 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [allMessages, setAllMessages] = useState<Record<string, Message[]>>({});
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const hasFetched = useRef(false);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const messages = activeConversationId ? allMessages[activeConversationId] || [] : [];
 
-  // Fetch conversations from backend on login
-  const fetchConversations = useCallback(async () => {
-    if (!user || hasFetched.current) return;
-    hasFetched.current = true;
+  // Fetch all conversations from backend
+  const refreshConversations = useCallback(async () => {
+    if (!user) return;
     try {
       const res = await apiClient.get('/chat/conversations');
       if (res.data?.conversations) {
         setConversations(res.data.conversations);
       }
-    } catch {
-      setConversations([]);
+    } catch (err) {
+      console.warn('[ChatContext] Failed to fetch conversations:', err);
     }
   }, [user]);
 
   useEffect(() => {
     if (user) {
-      hasFetched.current = false;
-      fetchConversations();
+      refreshConversations();
     } else {
       setConversations([]);
       setAllMessages({});
       setActiveConversationId(null);
-      hasFetched.current = false;
     }
-  }, [user?.id]);
+  }, [user?.id, refreshConversations]);
 
-  // Fetch messages when active conversation changes
-  useEffect(() => {
-    if (!activeConversationId || !user) return;
-    if (allMessages[activeConversationId]) return; // already loaded
-
-    const fetchMessages = async () => {
-      try {
-        const res = await apiClient.get(`/chat/conversations/${activeConversationId}/messages`);
-        if (res.data?.messages) {
-          setAllMessages((prev) => ({ ...prev, [activeConversationId]: res.data.messages }));
-        }
-      } catch {
-        setAllMessages((prev) => ({ ...prev, [activeConversationId]: [] }));
+  // Fetch messages for active conversation
+  const fetchMessagesForConversation = useCallback(async (convId: string) => {
+    if (!user || !convId) return;
+    try {
+      const res = await apiClient.get(`/chat/conversations/${convId}/messages`);
+      if (res.data?.messages) {
+        setAllMessages((prev) => ({
+          ...prev,
+          [convId]: res.data.messages,
+        }));
       }
-    };
+    } catch (err) {
+      console.warn('[ChatContext] Failed to load messages:', err);
+    }
+  }, [user]);
 
-    fetchMessages();
-  }, [activeConversationId, user]);
+  useEffect(() => {
+    if (activeConversationId) {
+      fetchMessagesForConversation(activeConversationId);
+    }
+  }, [activeConversationId, fetchMessagesForConversation]);
 
-  // Socket.IO real-time listeners
+  // Socket.IO real-time event listeners
   useEffect(() => {
     if (!user) return;
     const socket = getSocket();
 
+    // Join active conversation room if set
     if (activeConversationId) {
       socket.emit('join_conversation', activeConversationId);
     }
 
     const handleReceiveMessage = (msg: Message) => {
-      if (msg.senderId !== user.id) sounds.playReceived();
+      console.log('[Socket.IO] ✉️ Received incoming message:', msg);
 
+      // Play sound for incoming message from other user
+      if (msg.senderId !== user.id) {
+        sounds.playReceived();
+      }
+
+      // 1. Append message to message store (avoiding duplicates)
       setAllMessages((prev) => {
-        const current = prev[msg.conversationId] || [];
-        if (current.some((m) => m.id === msg.id)) return prev;
-        return { ...prev, [msg.conversationId]: [...current, msg] };
+        const existingList = prev[msg.conversationId] || [];
+        if (existingList.some((m) => m.id === msg.id)) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [msg.conversationId]: [...existingList, msg],
+        };
       });
+
+      // 2. Update conversation list preview & order
+      setConversations((prev) => {
+        const index = prev.findIndex((c) => c.id === msg.conversationId);
+        if (index === -1) {
+          // If conversation is brand new, refresh conversations from server
+          refreshConversations();
+          return prev;
+        }
+
+        const targetConv = prev[index];
+        const isCurrentActive = targetConv.id === activeConversationId;
+        const updatedConv: Conversation = {
+          ...targetConv,
+          lastMessage: msg,
+          unreadCount: isCurrentActive ? 0 : targetConv.unreadCount + 1,
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Move to top of list
+        const filtered = prev.filter((c) => c.id !== msg.conversationId);
+        return [updatedConv, ...filtered];
+      });
+
+      // 3. If this conversation is currently open, mark as read automatically
+      if (msg.conversationId === activeConversationId && msg.senderId !== user.id) {
+        try {
+          apiClient.patch(`/chat/conversations/${activeConversationId}/read`);
+          socket.emit('message_read', { conversationId: activeConversationId, readerId: user.id });
+        } catch {}
+      }
+    };
+
+    const handleConversationUpdated = (data: { conversationId: string; lastMessage: Message }) => {
+      setConversations((prev) => {
+        const exists = prev.some((c) => c.id === data.conversationId);
+        if (!exists) {
+          refreshConversations();
+          return prev;
+        }
+        return prev.map((c) =>
+          c.id === data.conversationId
+            ? { ...c, lastMessage: data.lastMessage, updatedAt: new Date().toISOString() }
+            : c
+        );
+      });
+    };
+
+    const handleChatCleared = (data: { conversationId: string; clearedBy: string }) => {
+      console.log('[Socket.IO] 🗑️ Chat cleared event received for:', data.conversationId);
+      setAllMessages((prev) => ({
+        ...prev,
+        [data.conversationId]: [],
+      }));
 
       setConversations((prev) =>
         prev.map((c) =>
-          c.id === msg.conversationId
-            ? { ...c, lastMessage: msg, unreadCount: c.id === activeConversationId ? 0 : c.unreadCount + 1, updatedAt: new Date().toISOString() }
+          c.id === data.conversationId
+            ? { ...c, lastMessage: null, unreadCount: 0 }
             : c
         )
       );
     };
 
     const handleTypingStart = (data: { conversationId: string; userId: string }) => {
-      if (data.conversationId === activeConversationId && data.userId !== user.id) setIsTyping(true);
+      if (data.conversationId === activeConversationId && data.userId !== user.id) {
+        setIsTyping(true);
+      }
     };
 
     const handleTypingStop = (data: { conversationId: string; userId: string }) => {
-      if (data.conversationId === activeConversationId && data.userId !== user.id) setIsTyping(false);
+      if (data.conversationId === activeConversationId && data.userId !== user.id) {
+        setIsTyping(false);
+      }
     };
 
-    const handleMessagesRead = (data: { conversationId: string }) => {
-      if (data.conversationId === activeConversationId) {
-        setAllMessages((prev) => ({
+    const handleMessagesRead = (data: { conversationId: string; readerId: string }) => {
+      setAllMessages((prev) => {
+        const list = prev[data.conversationId] || [];
+        return {
           ...prev,
-          [data.conversationId]: (prev[data.conversationId] || []).map((m) => ({ ...m, status: 'READ' as const })),
-        }));
-      }
+          [data.conversationId]: list.map((m) => ({ ...m, status: 'READ' as const })),
+        };
+      });
     };
 
     const handleUserOnline = (data: { userId: string }) => {
       setConversations((prev) =>
-        prev.map((c) => c.participant.id === data.userId ? { ...c, participant: { ...c.participant, isOnline: true } } : c)
+        prev.map((c) => (c.participant.id === data.userId ? { ...c, participant: { ...c.participant, isOnline: true } } : c))
       );
     };
 
     const handleUserOffline = (data: { userId: string }) => {
       setConversations((prev) =>
-        prev.map((c) => c.participant.id === data.userId ? { ...c, participant: { ...c.participant, isOnline: false } } : c)
+        prev.map((c) => (c.participant.id === data.userId ? { ...c, participant: { ...c.participant, isOnline: false } } : c))
       );
     };
 
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('conversation_updated', handleConversationUpdated);
+    socket.on('chat_cleared', handleChatCleared);
     socket.on('user_typing_start', handleTypingStart);
     socket.on('user_typing_stop', handleTypingStop);
     socket.on('messages_marked_read', handleMessagesRead);
@@ -143,19 +217,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.on('user_offline', handleUserOffline);
 
     return () => {
-      if (activeConversationId) socket.emit('leave_conversation', activeConversationId);
+      if (activeConversationId) {
+        socket.emit('leave_conversation', activeConversationId);
+      }
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('conversation_updated', handleConversationUpdated);
+      socket.off('chat_cleared', handleChatCleared);
       socket.off('user_typing_start', handleTypingStart);
       socket.off('user_typing_stop', handleTypingStop);
       socket.off('messages_marked_read', handleMessagesRead);
       socket.off('user_online', handleUserOnline);
       socket.off('user_offline', handleUserOffline);
     };
-  }, [user, activeConversationId]);
+  }, [user, activeConversationId, refreshConversations]);
 
   const selectConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
     markAsRead(conversationId);
+    fetchMessagesForConversation(conversationId);
   };
 
   const markAsRead = (conversationId: string) => {
@@ -171,7 +250,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       apiClient.patch(`/chat/conversations/${conversationId}/read`);
       const socket = getSocket();
-      if (user) socket.emit('message_read', { conversationId, readerId: user.id });
+      if (user) {
+        socket.emit('message_read', { conversationId, readerId: user.id });
+      }
     } catch {}
   };
 
@@ -179,9 +260,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!activeConversationId || !user) return;
     const socket = getSocket();
     if (typingState) {
-      socket.emit('typing_start', { conversationId: activeConversationId, userId: user.id, userName: user.name });
+      socket.emit('typing_start', {
+        conversationId: activeConversationId,
+        userId: user.id,
+        userName: user.name,
+      });
     } else {
-      socket.emit('typing_stop', { conversationId: activeConversationId, userId: user.id });
+      socket.emit('typing_stop', {
+        conversationId: activeConversationId,
+        userId: user.id,
+      });
     }
   };
 
@@ -189,8 +277,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!activeConversation || !user) return;
     sounds.playSent();
 
+    const tempId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     const tempMsg: Message = {
-      id: `msg-${Date.now()}`,
+      id: tempId,
       conversationId: activeConversation.id,
       senderId: user.id,
       content,
@@ -200,49 +289,113 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
+    // Optimistic UI update
     setAllMessages((prev) => ({
       ...prev,
       [activeConversation.id]: [...(prev[activeConversation.id] || []), tempMsg],
     }));
+
+    setConversations((prev) => {
+      const filtered = prev.filter((c) => c.id !== activeConversation.id);
+      const updated: Conversation = {
+        ...activeConversation,
+        lastMessage: tempMsg,
+        updatedAt: new Date().toISOString(),
+      };
+      return [updated, ...filtered];
+    });
+
+    // 1. Emit real-time message via Socket.IO
+    const socket = getSocket();
+    socket.emit('send_message', {
+      conversationId: activeConversation.id,
+      senderId: user.id,
+      content,
+      mediaUrl,
+    });
+
+    // 2. Persist to backend database via REST API
+    try {
+      const res = await apiClient.post(`/chat/conversations/${activeConversation.id}/messages`, {
+        content,
+        mediaUrl,
+      });
+      if (res.data?.message) {
+        const persistedMsg = res.data.message;
+        // Swap temp ID with real DB ID
+        setAllMessages((prev) => ({
+          ...prev,
+          [activeConversation.id]: (prev[activeConversation.id] || []).map((m) =>
+            m.id === tempId ? persistedMsg : m
+          ),
+        }));
+      }
+    } catch (err) {
+      console.error('[ChatContext] Failed to persist message:', err);
+    }
+  };
+
+  const clearChat = async (conversationId: string) => {
+    if (!user || !conversationId) return;
+
+    // 1. Optimistically clear local state
+    setAllMessages((prev) => ({
+      ...prev,
+      [conversationId]: [],
+    }));
+
     setConversations((prev) =>
       prev.map((c) =>
-        c.id === activeConversation.id ? { ...c, lastMessage: tempMsg, updatedAt: new Date().toISOString() } : c
+        c.id === conversationId ? { ...c, lastMessage: null, unreadCount: 0 } : c
       )
     );
 
+    // 2. Emit clear_chat event to Socket.IO (clears real-time for other participant)
     const socket = getSocket();
-    socket.emit('send_message', { conversationId: activeConversation.id, senderId: user.id, content, mediaUrl });
+    socket.emit('clear_chat', { conversationId, userId: user.id });
 
+    // 3. Delete from database
     try {
-      await apiClient.post(`/chat/conversations/${activeConversation.id}/messages`, { content, mediaUrl });
-    } catch {}
+      await apiClient.delete(`/chat/conversations/${conversationId}/messages`);
+    } catch (err) {
+      console.error('[ChatContext] Failed to clear chat history in database:', err);
+    }
   };
 
   const startNewConversation = async (targetUser: User) => {
-    // If already have a convo with them, just open it
     const existing = conversations.find((c) => c.participant.id === targetUser.id);
     if (existing) {
-      setActiveConversationId(existing.id);
+      selectConversation(existing.id);
       return;
     }
 
     try {
-      const res = await apiClient.post('/chat/conversations', { targetUserId: targetUser.id });
+      const res = await apiClient.post('/chat/conversations', {
+        targetUserId: targetUser.id,
+      });
+
       if (res.data?.conversation) {
         const newConv = res.data.conversation;
-        setConversations((prev) => [newConv, ...prev]);
+        setConversations((prev) => [newConv, ...prev.filter((c) => c.id !== newConv.id)]);
         setAllMessages((prev) => ({ ...prev, [newConv.id]: [] }));
-        setActiveConversationId(newConv.id);
+        selectConversation(newConv.id);
         return;
       }
-    } catch {}
+    } catch (err) {
+      console.error('[ChatContext] Failed to create conversation:', err);
+    }
 
-    // Fallback: create conversation locally
+    // Fallback local creation
     const newConvId = `conv-${Date.now()}`;
-    const newConv: Conversation = { id: newConvId, participant: targetUser, unreadCount: 0, updatedAt: new Date().toISOString() };
+    const newConv: Conversation = {
+      id: newConvId,
+      participant: targetUser,
+      unreadCount: 0,
+      updatedAt: new Date().toISOString(),
+    };
     setConversations((prev) => [newConv, ...prev]);
     setAllMessages((prev) => ({ ...prev, [newConvId]: [] }));
-    setActiveConversationId(newConvId);
+    selectConversation(newConvId);
   };
 
   const searchUsers = async (query: string): Promise<User[]> => {
@@ -269,7 +422,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         startNewConversation,
         markAsRead,
         emitTyping,
+        clearChat,
         searchUsers,
+        refreshConversations,
       }}
     >
       {children}

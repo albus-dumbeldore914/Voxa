@@ -1,19 +1,34 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
-import { Phone, Video, MoreVertical, MessageSquareDashed, ArrowLeft, ShieldAlert } from 'lucide-react';
+import {
+  Phone,
+  Video,
+  MoreVertical,
+  MessageSquareDashed,
+  ArrowLeft,
+  ShieldAlert,
+  Trash2,
+  User as UserIcon,
+  AlertTriangle,
+  X,
+} from 'lucide-react';
 
 interface ChatAreaProps {
   onBackToSidebar?: () => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
-  const { activeConversation, messages, isTyping, sendMessage } = useChat();
+  const { activeConversation, messages, isTyping, sendMessage, clearChat } = useChat();
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [showMenu, setShowMenu] = useState(false);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [showContactInfo, setShowContactInfo] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -22,6 +37,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('#chat-options-menu') && !target.closest('#chat-options-btn')) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showMenu]);
 
   if (!activeConversation) {
     return (
@@ -44,10 +73,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
 
   const { participant } = activeConversation;
 
+  const handleClearChatConfirmed = async () => {
+    setShowConfirmClear(false);
+    await clearChat(activeConversation.id);
+  };
+
   return (
     <div className="flex-1 h-full flex flex-col bg-[#fcfdfe] dark:bg-slate-950 relative overflow-hidden transition-colors duration-300">
       {/* Active Conversation Top Header */}
-      <div className="h-16 px-4 md:px-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 flex items-center justify-between z-10">
+      <div className="h-16 px-4 md:px-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 flex items-center justify-between z-20">
         <div className="flex items-center gap-3">
           {onBackToSidebar && (
             <button
@@ -59,32 +93,38 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
             </button>
           )}
 
-          <Avatar
-            name={participant.name}
-            avatar={participant.avatar}
-            isOnline={participant.isOnline}
-            size="md"
-          />
+          <div
+            className="cursor-pointer flex items-center gap-3"
+            onClick={() => setShowContactInfo(true)}
+            title="View contact info"
+          >
+            <Avatar
+              name={participant.name}
+              avatar={participant.avatar}
+              isOnline={participant.isOnline}
+              size="md"
+            />
 
-          <div>
-            <h2 className="font-bold text-slate-900 dark:text-slate-100 leading-tight text-sm md:text-base">
-              {participant.name}
-            </h2>
-            <p className="text-xs flex items-center gap-1.5">
-              {participant.isOnline ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>
-                </>
-              ) : (
-                <span className="text-slate-400 dark:text-slate-500 font-normal">{participant.lastSeen || 'Offline'}</span>
-              )}
-            </p>
+            <div>
+              <h2 className="font-bold text-slate-900 dark:text-slate-100 leading-tight text-sm md:text-base hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+                {participant.name}
+              </h2>
+              <p className="text-xs flex items-center gap-1.5">
+                {participant.isOnline ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>
+                  </>
+                ) : (
+                  <span className="text-slate-400 dark:text-slate-500 font-normal">{participant.lastSeen || 'Offline'}</span>
+                )}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Quick Action Icons */}
-        <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+        {/* Quick Action Icons & Dropdown Menu */}
+        <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 relative">
           <button
             type="button"
             onClick={() => alert(`Starting simulated audio call with ${participant.name}...`)}
@@ -101,14 +141,51 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
           >
             <Video className="w-4 h-4" />
           </button>
+
+          {/* Menu Button */}
           <button
+            id="chat-options-btn"
             type="button"
-            onClick={() => alert(`Contact details:\nPhone: ${participant.phone}\nEmail: ${participant.email}\nBio: ${participant.bio || 'None'}`)}
+            onClick={() => setShowMenu((prev) => !prev)}
             className="p-2 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
-            title="Conversation Options"
+            title="More Options"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
+
+          {/* Dropdown Menu */}
+          {showMenu && (
+            <div
+              id="chat-options-menu"
+              className="absolute right-0 top-12 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-sky-100 dark:border-slate-800 py-1.5 z-30 animate-fade-in text-xs"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowContactInfo(true);
+                }}
+                className="w-full px-3.5 py-2.5 flex items-center gap-2 text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-800 transition-colors text-left font-medium"
+              >
+                <UserIcon className="w-4 h-4 text-sky-500" />
+                <span>Contact Info</span>
+              </button>
+
+              <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowConfirmClear(true);
+                }}
+                className="w-full px-3.5 py-2.5 flex items-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors text-left font-medium"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Clear Chat</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -118,9 +195,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
         <div className="flex justify-center mb-4">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-slate-800/80 border border-sky-100 dark:border-slate-700/60 text-[11px] font-medium text-sky-700 dark:text-sky-300 shadow-xs">
             <ShieldAlert className="w-3 h-3 text-sky-500" />
-            <span>Talk. Connect. Belong. • Messages are private & secure</span>
+            <span>Talk. Connect. Belong. • Messages are saved until you clear them</span>
           </div>
         </div>
+
+        {/* Empty messages note */}
+        {messages.length === 0 && (
+          <div className="py-16 text-center text-slate-400 dark:text-slate-500 text-xs">
+            <p className="font-semibold text-slate-600 dark:text-slate-300">No messages yet</p>
+            <p className="mt-1">Say hello to start the conversation with {participant.name}!</p>
+          </div>
+        )}
 
         {/* Message bubbles */}
         {messages.map((msg) => (
@@ -148,6 +233,90 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
 
       {/* Message Input Bottom Bar */}
       <MessageInput onSendMessage={sendMessage} />
+
+      {/* Clear Chat Confirmation Modal */}
+      {showConfirmClear && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-red-100 dark:border-red-950 shadow-2xl w-full max-w-sm p-6 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base mb-1">Clear Chat History?</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              All messages in your conversation with <span className="font-semibold text-slate-700 dark:text-slate-200">{participant.name}</span> will be permanently deleted.
+            </p>
+
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowConfirmClear(false)}
+                className="flex-1 py-2.5 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearChatConfirmed}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl text-xs shadow-md shadow-red-500/20 transition-colors"
+              >
+                Yes, Clear Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Info Modal */}
+      {showContactInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-sky-100 dark:border-slate-800 shadow-2xl w-full max-w-sm p-6 relative">
+            <button
+              type="button"
+              onClick={() => setShowContactInfo(false)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center mb-5">
+              <div className="inline-block mx-auto mb-3">
+                <Avatar name={participant.name} avatar={participant.avatar} isOnline={participant.isOnline} size="lg" />
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">{participant.name}</h3>
+              <p className="text-xs text-sky-600 dark:text-sky-400 font-medium mt-0.5">
+                {participant.isOnline ? 'Active Now' : participant.lastSeen || 'Offline'}
+              </p>
+            </div>
+
+            <div className="space-y-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Phone</span>
+                <p className="text-slate-800 dark:text-slate-100 font-medium mt-0.5">{participant.phone}</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Email</span>
+                <p className="text-slate-800 dark:text-slate-100 font-medium mt-0.5">{participant.email}</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Bio / Status</span>
+                <p className="text-slate-800 dark:text-slate-100 italic mt-0.5">{participant.bio || 'Talk. Connect. Belong.'}</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowContactInfo(false);
+                setShowConfirmClear(true);
+              }}
+              className="w-full mt-4 py-2.5 px-4 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear chat history</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

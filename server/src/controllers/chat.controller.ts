@@ -304,3 +304,39 @@ export const markAsRead = async (req: AuthRequest, res: Response): Promise<void>
     res.status(500).json({ error: 'Failed to mark messages as read.' });
   }
 };
+
+export const clearConversationMessages = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Verify user is member of conversation
+    const isMember = await prisma.conversationMember.findFirst({
+      where: { conversationId: id, userId },
+    });
+
+    if (!isMember) {
+      res.status(403).json({ error: 'Forbidden: You are not a member of this conversation.' });
+      return;
+    }
+
+    // Delete all messages in the conversation from the database
+    const result = await prisma.message.deleteMany({
+      where: { conversationId: id },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Chat history cleared successfully.',
+      deletedCount: result.count,
+    });
+  } catch (error) {
+    console.error('Error in clearConversationMessages:', error);
+    res.status(500).json({ error: 'Failed to clear chat history.' });
+  }
+};

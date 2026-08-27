@@ -25,7 +25,7 @@ export interface Message {
 export interface Conversation {
   id: string;
   participant: User;
-  lastMessage?: Message;
+  lastMessage?: Message | null;
   unreadCount: number;
   updatedAt: string;
   isTyping?: boolean;

@@ -5,6 +5,7 @@ import {
   getMessages,
   sendMessage,
   markAsRead,
+  clearConversationMessages,
 } from '../controllers/chat.controller';
 import { authenticateJwt } from '../middleware/auth.middleware';
 
@@ -16,6 +17,7 @@ router.get('/conversations', getConversations);
 router.post('/conversations', getOrCreateConversation);
 router.get('/conversations/:id/messages', getMessages);
 router.post('/conversations/:id/messages', sendMessage);
+router.delete('/conversations/:id/messages', clearConversationMessages);
 router.patch('/conversations/:id/read', markAsRead);
 
 export default router;
