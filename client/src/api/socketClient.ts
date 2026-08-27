@@ -7,9 +7,10 @@ const getSocketUrl = (): string => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '');
   }
-  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:5000'
-    : window.location.origin;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5000';
+  }
+  return 'https://voxa-backend.onrender.com';
 };
 
 let socket: Socket | null = null;
@@ -35,7 +36,7 @@ export const getSocket = (token?: string, userId?: string): Socket => {
     });
 
     socket.on('connect', () => {
-      console.log('[Socket.IO] ✅ Connected to VOXA server:', socket?.id);
+      console.log('[Socket.IO] ✅ Connected to VOXA backend:', socket?.id);
     });
 
     socket.on('connect_error', (err) => {
