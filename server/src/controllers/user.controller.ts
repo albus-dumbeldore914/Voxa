@@ -6,7 +6,7 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
   try {
     const currentUserId = req.userId;
 
-    const users = await prisma.user.findMany({
+    const allUsers = await prisma.user.findMany({
       where: currentUserId ? { id: { not: currentUserId } } : {},
       select: {
         id: true,
@@ -21,7 +21,7 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
       orderBy: { name: 'asc' },
     });
 
-    res.status(200).json({ users });
+    res.status(200).json({ users: allUsers });
   } catch (error) {
     console.error('Error in getUsers:', error);
     res.status(500).json({ error: 'Failed to fetch users.' });
@@ -30,22 +30,11 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
 
 export const searchUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const query = (req.query.q as string) || '';
+    const query = ((req.query.q as string) || '').trim().toLowerCase();
     const currentUserId = req.userId;
 
-    const users = await prisma.user.findMany({
-      where: {
-        AND: [
-          currentUserId ? { id: { not: currentUserId } } : {},
-          {
-            OR: [
-              { name: { contains: query } },
-              { phone: { contains: query } },
-              { email: { contains: query } },
-            ],
-          },
-        ],
-      },
+    const allUsers = await prisma.user.findMany({
+      where: currentUserId ? { id: { not: currentUserId } } : {},
       select: {
         id: true,
         name: true,
@@ -56,9 +45,24 @@ export const searchUsers = async (req: AuthRequest, res: Response): Promise<void
         isOnline: true,
         lastSeen: true,
       },
+      orderBy: { name: 'asc' },
     });
 
-    res.status(200).json({ users });
+    if (!query) {
+      res.status(200).json({ users: allUsers });
+      return;
+    }
+
+    // Case-insensitive flexible matching across name, phone, and email
+    const filtered = allUsers.filter(
+      (u) =>
+        (u.name && u.name.toLowerCase().includes(query)) ||
+        (u.phone && u.phone.toLowerCase().includes(query)) ||
+        (u.email && u.email.toLowerCase().includes(query)) ||
+        (u.bio && u.bio.toLowerCase().includes(query))
+    );
+
+    res.status(200).json({ users: filtered });
   } catch (error) {
     console.error('Error in searchUsers:', error);
     res.status(500).json({ error: 'Failed to search users.' });

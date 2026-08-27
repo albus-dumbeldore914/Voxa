@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useChat } from '../../context/ChatContext';
+import { useAuth } from '../../context/AuthContext';
 import type { User } from '../../types';
 import { Avatar } from '../common/Avatar';
-import { Search, X, MessageSquarePlus, UserPlus, Loader2 } from 'lucide-react';
+import { Search, X, MessageSquarePlus, UserPlus, Loader2, Users } from 'lucide-react';
+import { apiClient } from '../../api/apiClient';
 
 interface NewChatModalProps {
   isOpen: boolean;
@@ -11,41 +12,57 @@ interface NewChatModalProps {
 }
 
 export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onSelectUser }) => {
-  const { searchUsers } = useChat();
+  const { user: currentUser } = useAuth();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<User[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Load all registered users when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setQuery('');
-      setResults([]);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [isOpen]);
+    if (!isOpen) return;
 
+    setQuery('');
+    setIsLoading(true);
+
+    const loadUsers = async () => {
+      try {
+        const res = await apiClient.get('/users');
+        if (res.data?.users) {
+          const list = res.data.users.filter((u: User) => u.id !== currentUser?.id);
+          setAllUsers(list);
+          setFilteredUsers(list);
+        }
+      } catch (err) {
+        console.warn('[NewChatModal] Failed to load users:', err);
+      } finally {
+        setIsLoading(false);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
+    };
+
+    loadUsers();
+  }, [isOpen, currentUser?.id]);
+
+  // Filter in real-time as user types
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (!query.trim()) {
-      setResults([]);
-      setIsSearching(false);
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      setFilteredUsers(allUsers);
       return;
     }
 
-    setIsSearching(true);
-    debounceRef.current = setTimeout(async () => {
-      const users = await searchUsers(query);
-      setResults(users);
-      setIsSearching(false);
-    }, 400);
+    const matched = allUsers.filter(
+      (u) =>
+        (u.name && u.name.toLowerCase().includes(q)) ||
+        (u.phone && u.phone.toLowerCase().includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.bio && u.bio.toLowerCase().includes(q))
+    );
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query]);
+    setFilteredUsers(matched);
+  }, [query, allUsers]);
 
   const handleSelect = (user: User) => {
     onSelectUser(user);
@@ -60,11 +77,12 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-sky-100 dark:border-slate-800 shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] transition-colors duration-300">
-
         {/* Header */}
         <div className="p-4 border-b border-sky-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -73,7 +91,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
             </div>
             <div>
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">New Conversation</h3>
-              <p className="text-xs text-slate-400 dark:text-slate-500">Search users by name, phone or email</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Pick a registered contact to start chatting</p>
             </div>
           </div>
           <button
@@ -85,14 +103,10 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
           </button>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Input */}
         <div className="p-3 border-b border-sky-50 dark:border-slate-800/80">
           <div className="relative">
-            {isSearching ? (
-              <Loader2 className="w-4 h-4 text-sky-500 absolute left-3.5 top-1/2 -translate-y-1/2 animate-spin" />
-            ) : (
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            )}
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               ref={inputRef}
               type="text"
@@ -105,34 +119,36 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
           </div>
         </div>
 
-        {/* Results */}
+        {/* Users List */}
         <div className="flex-1 overflow-y-auto p-2">
-          {!query.trim() ? (
-            <div className="py-12 text-center">
-              <div className="w-14 h-14 bg-sky-50 dark:bg-sky-950/40 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Search className="w-7 h-7 text-sky-400 dark:text-sky-500" />
-              </div>
-              <p className="font-semibold text-slate-600 dark:text-slate-300 text-sm">Find someone to chat with</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Start typing to search VOXA users</p>
-            </div>
-          ) : isSearching ? (
+          {isLoading ? (
             <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
               <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-sky-500" />
-              Searching...
+              Loading registered users...
             </div>
-          ) : results.length === 0 ? (
+          ) : allUsers.length === 0 ? (
+            <div className="py-12 text-center px-4">
+              <div className="w-14 h-14 bg-sky-50 dark:bg-sky-950/40 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Users className="w-7 h-7 text-sky-400 dark:text-sky-500" />
+              </div>
+              <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">No other users registered yet</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs mx-auto">
+                Have your friend log in with their phone & email on VOXA — they will immediately show up here!
+              </p>
+            </div>
+          ) : filteredUsers.length === 0 ? (
             <div className="py-12 text-center">
               <p className="font-semibold text-slate-600 dark:text-slate-300 text-sm">No users found</p>
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                No one matches "<span className="font-medium">{query}</span>"
+                No contact matches "<span className="font-medium">{query}</span>"
               </p>
             </div>
           ) : (
             <div className="space-y-1">
               <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 py-1">
-                {results.length} user{results.length !== 1 ? 's' : ''} found
+                {filteredUsers.length} contact{filteredUsers.length !== 1 ? 's' : ''} available
               </p>
-              {results.map((u) => (
+              {filteredUsers.map((u) => (
                 <button
                   key={u.id}
                   type="button"
