@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { Conversation, Message, User } from '../types';
 import { useAuth } from './AuthContext';
 import { sounds } from '../utils/sound';
@@ -32,6 +32,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const activeConvRef = useRef<string | null>(null);
+  activeConvRef.current = activeConversationId;
+
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const messages = activeConversationId ? allMessages[activeConversationId] || [] : [];
 
@@ -58,27 +61,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.id, refreshConversations]);
 
-  // Fetch messages for active conversation
-  const fetchMessagesForConversation = useCallback(async (convId: string) => {
-    if (!user || !convId) return;
-    try {
-      const res = await apiClient.get(`/chat/conversations/${convId}/messages`);
-      if (res.data?.messages) {
-        setAllMessages((prev) => ({
-          ...prev,
-          [convId]: res.data.messages,
-        }));
-      }
-    } catch (err) {
-      console.warn('[ChatContext] Failed to load messages:', err);
-    }
-  }, [user]);
-
+  // 🔒 EPHEMERAL PRIVACY: Clear chat on tab close or page reload
   useEffect(() => {
-    if (activeConversationId) {
-      fetchMessagesForConversation(activeConversationId);
-    }
-  }, [activeConversationId, fetchMessagesForConversation]);
+    const handleBeforeUnload = () => {
+      const convId = activeConvRef.current;
+      const token = localStorage.getItem('voxa_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+      if (convId && token) {
+        // Securely wipe the active conversation messages from the database on exit
+        try {
+          fetch(`${apiUrl}/chat/conversations/${convId}/messages`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            keepalive: true,
+          });
+        } catch {}
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, []);
 
   // Socket.IO real-time event listeners
   useEffect(() => {
@@ -97,7 +109,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (msg.senderId !== user.id) {
         sounds.playReceived();
 
-        // 1. Acknowledge delivery immediately so sender's tick turns from Sent (✓) to Delivered (✓✓)
+        // 1. Acknowledge delivery immediately so sender sees Delivered (✓✓)
         socket.emit('message_delivered', {
           messageId: msg.id,
           conversationId: msg.conversationId,
@@ -283,7 +295,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const selectConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
     markAsRead(conversationId);
-    fetchMessagesForConversation(conversationId);
+    // In ephemeral mode, messages exist in live memory and clear on reload/close
   };
 
   const markAsRead = (conversationId: string) => {

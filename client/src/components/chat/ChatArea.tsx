@@ -195,7 +195,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
         <div className="flex justify-center mb-4">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-slate-800/80 border border-sky-100 dark:border-slate-700/60 text-[11px] font-medium text-sky-700 dark:text-sky-300 shadow-xs">
             <ShieldAlert className="w-3 h-3 text-sky-500" />
-            <span>Talk. Connect. Belong. • Messages are saved until you clear them</span>
+            <span>🔒 Ephemeral Privacy • Messages automatically self-destruct on tab reload or exit</span>
           </div>
         </div>
 
