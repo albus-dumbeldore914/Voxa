@@ -12,14 +12,20 @@ interface ProfileModalProps {
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const { user, logout, updateProfile } = useAuth();
   const { theme, setTheme } = useTheme();
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(user?.name || '');
+  // Auto-open edit mode if name is still the default placeholder
+  const isDefaultName = !user?.name || user.name === 'VOXA User';
+  const [isEditing, setIsEditing] = useState(isDefaultName);
+  const [name, setName] = useState(user?.name === 'VOXA User' ? '' : (user?.name || ''));
   const [bio, setBio] = useState(user?.bio || '');
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen || !user) return null;
 
-  const handleSave = () => {
-    updateProfile({ name, bio });
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    setIsSaving(true);
+    await updateProfile({ name: name.trim(), bio: bio.trim() });
+    setIsSaving(false);
     setIsEditing(false);
   };
 
@@ -44,13 +50,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
 
           {isEditing ? (
             <div className="w-full space-y-3 text-left">
+              {isDefaultName && (
+                <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700 rounded-xl text-xs text-amber-700 dark:text-amber-300 font-medium">
+                  👋 Set your real name so your friends can find and recognize you!
+                </div>
+              )}
               <div>
-                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Name</label>
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full mt-1 p-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  placeholder="Your full name (e.g. Sanjyot Patil)"
+                  autoFocus
+                  className="w-full mt-1 p-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none placeholder:text-slate-400"
                 />
               </div>
               <div>
@@ -59,15 +72,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                   type="text"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
+                  placeholder="What's your vibe?"
                   className="w-full mt-1 p-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
               <button
                 type="button"
                 onClick={handleSave}
-                className="w-full py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-sky-600/20 transition-colors"
+                disabled={isSaving || !name.trim()}
+                className="w-full py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-sky-600/20 transition-colors"
               >
-                <Check className="w-4 h-4" /> Save Changes
+                {isSaving ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           ) : (

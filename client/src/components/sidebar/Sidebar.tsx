@@ -68,6 +68,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSelectMobileChat }) => {
         </div>
       </div>
 
+      {/* ⚠️ Show banner if user's name is still the default */}
+      {user && (user.name === 'VOXA User' || !user.name) && (
+        <div
+          className="mx-3 mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/60 flex items-center gap-2 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+          onClick={() => setShowProfile(true)}
+        >
+          <span className="text-amber-600 dark:text-amber-400 text-lg">⚠️</span>
+          <div>
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-300">Set your display name!</p>
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">Tap here → Profile → edit your name so friends can find you.</p>
+          </div>
+        </div>
+      )}
+
       {/* Search Input Bar */}
       <div className="p-3 border-b border-sky-50 dark:border-slate-800/80">
         <div className="relative">

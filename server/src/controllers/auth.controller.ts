@@ -120,10 +120,19 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
         },
       });
     } else {
-      // Update online status
+      // Update online status AND name if a proper name was provided
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { isOnline: true, lastSeen: new Date() },
+        data: {
+          isOnline: true,
+          lastSeen: new Date(),
+          // Update name only if a real name was given and current name is default
+          ...(name && name.trim() && (user.name === 'VOXA User' || !user.name)
+            ? { name: name.trim() }
+            : name && name.trim()
+            ? { name: name.trim() }  // Always update name if provided
+            : {}),
+        },
       });
     }
 
