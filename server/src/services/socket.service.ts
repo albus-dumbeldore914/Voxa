@@ -175,12 +175,14 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
           createdAt: newMessage.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
 
-        // 1. Echo back to SENDER with tempId so they can replace optimistic message
-        if (data.tempId) {
-          io.to(`user:${senderId}`).emit('receive_message', { ...formattedMessage, tempId: data.tempId });
-        }
+        // 1. Echo back to SENDER only, with tempId so client replaces optimistic temp message
+        io.to(`user:${senderId}`).emit('receive_message', {
+          ...formattedMessage,
+          tempId: data.tempId || null,
+        });
 
-        // 2. Broadcast to OTHER members (not sender — they already got their echo above)
+        // 2. Deliver to ALL OTHER members via their personal user room
+        // (Do NOT broadcast to conv room — that would cause duplicates for anyone in both rooms)
         for (const member of members) {
           if (member.userId !== senderId) {
             io.to(`user:${member.userId}`).emit('receive_message', formattedMessage);
@@ -191,10 +193,7 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
           }
         }
 
-        // 3. Also broadcast to conversation room (for any other listeners)
-        socket.to(`conv:${data.conversationId}`).emit('receive_message', formattedMessage);
-
-        console.log(`[Socket.IO] ✉️ Message delivered (${formattedMessage.status}) in conv:${data.conversationId}`);
+        console.log(`[Socket.IO] ✉️ Message (${formattedMessage.status}) → sender echo + ${otherMembers.length} recipient(s) in conv:${data.conversationId}`);
       } catch (err) {
         console.error('[Socket.IO] Error handling send_message:', err);
       }
