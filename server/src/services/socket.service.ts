@@ -14,12 +14,14 @@ interface SocketUser {
 
 // Track online socket connections (userId -> Set of socketIds)
 const onlineUsers = new Map<string, Set<string>>();
+let ioInstance: SocketIOServer | null = null;
+
+export const getIO = (): SocketIOServer | null => ioInstance;
 
 export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string[]) => {
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: (origin, callback) => {
-        // Accept all origins dynamically for WebSockets
         callback(null, true);
       },
       methods: ['GET', 'POST', 'DELETE', 'PATCH'],
@@ -27,6 +29,8 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
     },
     transports: ['websocket', 'polling'],
   });
+
+  ioInstance = io;
 
   // Socket Authentication Middleware
   io.use((socket: Socket, next) => {
@@ -58,7 +62,7 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
       }
       onlineUsers.get(userId)!.add(socket.id);
 
-      // Join user's personal direct notification room
+      // Join user's personal notification room
       socket.join(`user:${userId}`);
 
       try {
@@ -73,10 +77,44 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
     }
 
     // Join conversation room
-    socket.on('join_conversation', (conversationId: string) => {
+    socket.on('join_conversation', async (conversationId: string) => {
       if (!conversationId) return;
       socket.join(`conv:${conversationId}`);
       console.log(`[Socket.IO] Socket ${socket.id} (User: ${userId || 'guest'}) joined conv:${conversationId}`);
+
+      // When user joins a conversation, automatically mark incoming messages as READ
+      if (userId) {
+        try {
+          await prisma.message.updateMany({
+            where: {
+              conversationId,
+              senderId: { not: userId },
+              status: { not: 'READ' },
+            },
+            data: { status: 'READ' },
+          });
+
+          io.to(`conv:${conversationId}`).emit('messages_marked_read', {
+            conversationId,
+            readerId: userId,
+          });
+
+          // Also notify conversation members directly
+          const members = await prisma.conversationMember.findMany({
+            where: { conversationId },
+          });
+          for (const member of members) {
+            if (member.userId !== userId) {
+              io.to(`user:${member.userId}`).emit('messages_marked_read', {
+                conversationId,
+                readerId: userId,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[Socket.IO] Error auto-marking read on join:', err);
+        }
+      }
     });
 
     // Leave conversation room
@@ -96,6 +134,17 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
         const senderId = user?.id || data.senderId;
         if (!senderId || !data.conversationId) return;
 
+        // Check if recipient members are online
+        const members = await prisma.conversationMember.findMany({
+          where: { conversationId: data.conversationId },
+        });
+
+        const otherMembers = members.filter((m) => m.userId !== senderId);
+        const isAnyRecipientOnline = otherMembers.some((m) => onlineUsers.has(m.userId) && onlineUsers.get(m.userId)!.size > 0);
+
+        // Initial status: DELIVERED if recipient is online, otherwise SENT
+        const initialStatus = isAnyRecipientOnline ? 'DELIVERED' : 'SENT';
+
         // Persist message to database
         const newMessage = await prisma.message.create({
           data: {
@@ -104,7 +153,7 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
             content: data.content || '',
             mediaUrl: data.mediaUrl || null,
             mediaType: data.mediaUrl ? 'image' : null,
-            status: 'SENT',
+            status: initialStatus,
           },
         });
 
@@ -128,12 +177,7 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
         // 1. Broadcast to conversation room
         io.to(`conv:${data.conversationId}`).emit('receive_message', formattedMessage);
 
-        // 2. Also broadcast directly to ALL conversation members' personal rooms
-        // (Guarantees receipt even if the other person hasn't opened that conversation yet)
-        const members = await prisma.conversationMember.findMany({
-          where: { conversationId: data.conversationId },
-        });
-
+        // 2. Broadcast directly to all member channels
         for (const member of members) {
           io.to(`user:${member.userId}`).emit('receive_message', formattedMessage);
           io.to(`user:${member.userId}`).emit('conversation_updated', {
@@ -142,41 +186,40 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
           });
         }
 
-        console.log(`[Socket.IO] ✉️ Message delivered in conv:${data.conversationId} by user:${senderId}`);
+        console.log(`[Socket.IO] ✉️ Message delivered (${formattedMessage.status}) in conv:${data.conversationId}`);
       } catch (err) {
         console.error('[Socket.IO] Error handling send_message:', err);
       }
     });
 
-    // Typing Indicators
-    socket.on('typing_start', async (data: { conversationId: string; userId: string; userName: string }) => {
-      socket.to(`conv:${data.conversationId}`).emit('user_typing_start', data);
+    // Message Delivered Event (client received the message)
+    socket.on('message_delivered', async (data: { messageId: string; conversationId: string; senderId: string }) => {
+      try {
+        await prisma.message.updateMany({
+          where: {
+            id: data.messageId,
+            status: 'SENT',
+          },
+          data: { status: 'DELIVERED' },
+        });
 
-      // Direct fallback to conversation members
-      const members = await prisma.conversationMember.findMany({
-        where: { conversationId: data.conversationId },
-      });
-      for (const member of members) {
-        if (member.userId !== data.userId) {
-          io.to(`user:${member.userId}`).emit('user_typing_start', data);
-        }
+        io.to(`conv:${data.conversationId}`).emit('message_status_updated', {
+          messageId: data.messageId,
+          conversationId: data.conversationId,
+          status: 'DELIVERED',
+        });
+
+        io.to(`user:${data.senderId}`).emit('message_status_updated', {
+          messageId: data.messageId,
+          conversationId: data.conversationId,
+          status: 'DELIVERED',
+        });
+      } catch (err) {
+        console.error('[Socket.IO] Error in message_delivered:', err);
       }
     });
 
-    socket.on('typing_stop', async (data: { conversationId: string; userId: string }) => {
-      socket.to(`conv:${data.conversationId}`).emit('user_typing_stop', data);
-
-      const members = await prisma.conversationMember.findMany({
-        where: { conversationId: data.conversationId },
-      });
-      for (const member of members) {
-        if (member.userId !== data.userId) {
-          io.to(`user:${member.userId}`).emit('user_typing_stop', data);
-        }
-      }
-    });
-
-    // Mark Messages as Read
+    // Message Read Event (client opened/viewed the message)
     socket.on('message_read', async (data: { conversationId: string; readerId: string }) => {
       try {
         await prisma.message.updateMany({
@@ -204,6 +247,33 @@ export const initSocketService = (httpServer: HTTPServer, allowedOrigins: string
         }
       } catch (err) {
         console.error('[Socket.IO] Error in message_read:', err);
+      }
+    });
+
+    // Typing Indicators
+    socket.on('typing_start', async (data: { conversationId: string; userId: string; userName: string }) => {
+      socket.to(`conv:${data.conversationId}`).emit('user_typing_start', data);
+
+      const members = await prisma.conversationMember.findMany({
+        where: { conversationId: data.conversationId },
+      });
+      for (const member of members) {
+        if (member.userId !== data.userId) {
+          io.to(`user:${member.userId}`).emit('user_typing_start', data);
+        }
+      }
+    });
+
+    socket.on('typing_stop', async (data: { conversationId: string; userId: string }) => {
+      socket.to(`conv:${data.conversationId}`).emit('user_typing_stop', data);
+
+      const members = await prisma.conversationMember.findMany({
+        where: { conversationId: data.conversationId },
+      });
+      for (const member of members) {
+        if (member.userId !== data.userId) {
+          io.to(`user:${member.userId}`).emit('user_typing_stop', data);
+        }
       }
     });
 

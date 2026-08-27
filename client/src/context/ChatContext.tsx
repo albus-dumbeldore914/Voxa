@@ -93,12 +93,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleReceiveMessage = (msg: Message) => {
       console.log('[Socket.IO] ✉️ Received incoming message:', msg);
 
-      // Play sound for incoming message from other user
+      // Play chime for incoming messages from the other user
       if (msg.senderId !== user.id) {
         sounds.playReceived();
+
+        // 1. Acknowledge delivery immediately so sender's tick turns from Sent (✓) to Delivered (✓✓)
+        socket.emit('message_delivered', {
+          messageId: msg.id,
+          conversationId: msg.conversationId,
+          senderId: msg.senderId,
+        });
       }
 
-      // 1. Append message to message store (avoiding duplicates)
+      // 2. Append message to store
       setAllMessages((prev) => {
         const existingList = prev[msg.conversationId] || [];
         if (existingList.some((m) => m.id === msg.id)) {
@@ -110,11 +117,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       });
 
-      // 2. Update conversation list preview & order
+      // 3. Update conversation list preview & order
       setConversations((prev) => {
         const index = prev.findIndex((c) => c.id === msg.conversationId);
         if (index === -1) {
-          // If conversation is brand new, refresh conversations from server
           refreshConversations();
           return prev;
         }
@@ -128,18 +134,67 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updatedAt: new Date().toISOString(),
         };
 
-        // Move to top of list
         const filtered = prev.filter((c) => c.id !== msg.conversationId);
         return [updatedConv, ...filtered];
       });
 
-      // 3. If this conversation is currently open, mark as read automatically
+      // 4. If this chat is currently open, auto-mark as read so sender sees Blue Ticks (🔵✓✓)
       if (msg.conversationId === activeConversationId && msg.senderId !== user.id) {
         try {
           apiClient.patch(`/chat/conversations/${activeConversationId}/read`);
           socket.emit('message_read', { conversationId: activeConversationId, readerId: user.id });
         } catch {}
       }
+    };
+
+    const handleNewConversation = (newConv: Conversation) => {
+      console.log('[Socket.IO] 🤝 New conversation started with:', newConv.participant.name);
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === newConv.id)) return prev;
+        return [newConv, ...prev];
+      });
+    };
+
+    const handleMessageStatusUpdated = (data: { messageId: string; conversationId: string; status: 'DELIVERED' | 'READ' }) => {
+      console.log(`[Socket.IO] ✓✓ Message status updated: ${data.messageId} -> ${data.status}`);
+      setAllMessages((prev) => {
+        const list = prev[data.conversationId] || [];
+        return {
+          ...prev,
+          [data.conversationId]: list.map((m) =>
+            m.id === data.messageId ? { ...m, status: data.status } : m
+          ),
+        };
+      });
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === data.conversationId && c.lastMessage?.id === data.messageId
+            ? { ...c, lastMessage: { ...c.lastMessage, status: data.status } }
+            : c
+        )
+      );
+    };
+
+    const handleMessagesRead = (data: { conversationId: string; readerId: string }) => {
+      console.log('[Socket.IO] 🔵✓✓ Messages marked READ by:', data.readerId);
+      setAllMessages((prev) => {
+        const list = prev[data.conversationId] || [];
+        return {
+          ...prev,
+          [data.conversationId]: list.map((m) =>
+            m.senderId !== data.readerId ? { ...m, status: 'READ' as const } : m
+          ),
+        };
+      });
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === data.conversationId && c.lastMessage && c.lastMessage.senderId !== data.readerId
+            ? { ...c, lastMessage: { ...c.lastMessage, status: 'READ' as const } }
+            : c
+        )
+      );
     };
 
     const handleConversationUpdated = (data: { conversationId: string; lastMessage: Message }) => {
@@ -185,16 +240,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    const handleMessagesRead = (data: { conversationId: string; readerId: string }) => {
-      setAllMessages((prev) => {
-        const list = prev[data.conversationId] || [];
-        return {
-          ...prev,
-          [data.conversationId]: list.map((m) => ({ ...m, status: 'READ' as const })),
-        };
-      });
-    };
-
     const handleUserOnline = (data: { userId: string }) => {
       setConversations((prev) =>
         prev.map((c) => (c.participant.id === data.userId ? { ...c, participant: { ...c.participant, isOnline: true } } : c))
@@ -208,11 +253,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('new_conversation', handleNewConversation);
+    socket.on('message_status_updated', handleMessageStatusUpdated);
+    socket.on('messages_marked_read', handleMessagesRead);
     socket.on('conversation_updated', handleConversationUpdated);
     socket.on('chat_cleared', handleChatCleared);
     socket.on('user_typing_start', handleTypingStart);
     socket.on('user_typing_stop', handleTypingStop);
-    socket.on('messages_marked_read', handleMessagesRead);
     socket.on('user_online', handleUserOnline);
     socket.on('user_offline', handleUserOffline);
 
@@ -221,11 +268,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.emit('leave_conversation', activeConversationId);
       }
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('new_conversation', handleNewConversation);
+      socket.off('message_status_updated', handleMessageStatusUpdated);
+      socket.off('messages_marked_read', handleMessagesRead);
       socket.off('conversation_updated', handleConversationUpdated);
       socket.off('chat_cleared', handleChatCleared);
       socket.off('user_typing_start', handleTypingStart);
       socket.off('user_typing_stop', handleTypingStop);
-      socket.off('messages_marked_read', handleMessagesRead);
       socket.off('user_online', handleUserOnline);
       socket.off('user_offline', handleUserOffline);
     };
@@ -285,7 +334,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       content,
       mediaUrl,
       mediaType: mediaUrl ? 'image' : undefined,
-      status: 'SENT',
+      status: activeConversation.participant.isOnline ? 'DELIVERED' : 'SENT',
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
@@ -322,7 +371,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (res.data?.message) {
         const persistedMsg = res.data.message;
-        // Swap temp ID with real DB ID
         setAllMessages((prev) => ({
           ...prev,
           [activeConversation.id]: (prev[activeConversation.id] || []).map((m) =>

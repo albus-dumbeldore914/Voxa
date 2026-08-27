@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../config/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { getIO } from '../services/socket.service';
 
 export const getConversations = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -185,15 +186,32 @@ export const getOrCreateConversation = async (req: AuthRequest, res: Response): 
     });
 
     const otherMember = newConv.members.find((m) => m.userId !== userId);
+    const currentUserMember = newConv.members.find((m) => m.userId === userId);
+
+    const convForSender = {
+      id: newConv.id,
+      participant: otherMember ? otherMember.user : null,
+      lastMessage: null,
+      unreadCount: 0,
+      updatedAt: newConv.lastMessageAt.toISOString(),
+    };
+
+    const convForRecipient = {
+      id: newConv.id,
+      participant: currentUserMember ? currentUserMember.user : null,
+      lastMessage: null,
+      unreadCount: 0,
+      updatedAt: newConv.lastMessageAt.toISOString(),
+    };
+
+    // Real-time broadcast to the recipient's socket channel
+    const io = getIO();
+    if (io) {
+      io.to(`user:${targetUserId}`).emit('new_conversation', convForRecipient);
+    }
 
     res.status(201).json({
-      conversation: {
-        id: newConv.id,
-        participant: otherMember ? otherMember.user : null,
-        lastMessage: null,
-        unreadCount: 0,
-        updatedAt: newConv.lastMessageAt.toISOString(),
-      },
+      conversation: convForSender,
     });
   } catch (error) {
     console.error('Error in getOrCreateConversation:', error);
