@@ -2,13 +2,13 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
+import { BrainBoxLogo } from '../common/BrainBoxLogo';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import {
   Phone,
   Video,
   MoreVertical,
-  MessageSquareDashed,
   ArrowLeft,
   ShieldAlert,
   Trash2,
@@ -54,18 +54,27 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
 
   if (!activeConversation) {
     return (
-      <div className="flex-1 h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50/50 to-sky-50/30 dark:from-slate-950/50 dark:to-slate-900/50 p-8 text-center transition-colors duration-300">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-sky-600 to-sky-400 text-white flex items-center justify-center mb-5 shadow-xl shadow-sky-500/20">
-          <MessageSquareDashed className="w-10 h-10" />
+      <div className="flex-1 h-full flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#090B10] p-8 text-center transition-colors duration-300 relative overflow-hidden">
+        {/* Ambient glow */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#00D285]/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-20 h-20 rounded-3xl bg-slate-100 dark:bg-[#111726] border border-slate-200 dark:border-[#202C42] flex items-center justify-center mb-5 shadow-xl shadow-[#00D285]/10 relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-[#00D285]/30 to-[#38BDF8]/30 rounded-3xl blur-md opacity-60 group-hover:opacity-100 transition-opacity" />
+          <BrainBoxLogo size={36} className="relative z-10" />
         </div>
-        <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mb-2 tracking-tight">VOXA</h3>
-        <p className="text-sm font-semibold text-sky-600 dark:text-sky-400 mb-4">Talk. Connect. Belong.</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
-          Select a conversation from the sidebar, or tap <span className="font-bold text-sky-600 dark:text-sky-400">+</span> to search for users and start a new chat.
+        <div className="flex items-center gap-2 mb-2">
+          <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">VOXA</h3>
+          <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 bg-[#00D285]/15 text-[#00A86B] dark:text-[#00F59B] border border-[#00D285]/30 rounded-full">
+            AI READY
+          </span>
+        </div>
+        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-4 tracking-wider uppercase">Talk. Connect. Belong.</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 max-w-xs leading-relaxed">
+          Select a chat from the sidebar or tap <span className="font-bold text-[#00A86B] dark:text-[#00F59B]">+</span> to search contacts and start an encrypted conversation.
         </p>
-        <div className="mt-8 flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
-          <ShieldAlert className="w-3.5 h-3.5" />
-          <span>End-to-end encrypted messaging</span>
+        <div className="mt-8 inline-flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 px-3 py-1.5 bg-slate-100 dark:bg-[#121826] border border-slate-200 dark:border-[#1E2638] rounded-full">
+          <ShieldAlert className="w-3.5 h-3.5 text-[#00D285]" />
+          <span>Client-side encrypted messaging</span>
         </div>
       </div>
     );
@@ -79,15 +88,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-[#fcfdfe] dark:bg-slate-950 relative overflow-hidden transition-colors duration-300">
+    <div className="flex-1 h-full flex flex-col bg-[#F8FAFC] dark:bg-[#090B10] relative overflow-hidden transition-colors duration-300">
       {/* Active Conversation Top Header */}
-      <div className="h-16 px-3 sm:px-4 md:px-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 flex items-center justify-between z-20 shrink-0">
+      <div className="h-16 px-3 sm:px-4 md:px-6 bg-white/90 dark:bg-[#0E1320]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-[#1A2233] flex items-center justify-between z-20 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 mr-2">
           {onBackToSidebar && (
             <button
               type="button"
               onClick={onBackToSidebar}
-              className="md:hidden p-2 -ml-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+              className="md:hidden p-2 -ml-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#161E2E] rounded-xl transition-colors shrink-0"
               aria-label="Back to conversations"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -109,14 +118,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
             </div>
 
             <div className="min-w-0 flex-1">
-              <h2 className="font-bold text-slate-900 dark:text-slate-100 leading-tight text-sm sm:text-base hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate">
+              <h2 className="font-bold text-slate-900 dark:text-slate-100 leading-tight text-sm sm:text-base hover:text-[#00A86B] dark:hover:text-[#00F59B] transition-colors truncate">
                 {participant.name}
               </h2>
               <p className="text-[11px] sm:text-xs flex items-center gap-1.5 truncate">
                 {participant.isOnline ? (
                   <>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>
+                    <span className="w-2 h-2 rounded-full bg-[#00D285] inline-block shrink-0 shadow-xs shadow-[#00D285]/50 animate-pulse" />
+                    <span className="text-[#00A86B] dark:text-[#00F59B] font-medium">Online</span>
                   </>
                 ) : (
                   <span className="text-slate-400 dark:text-slate-500 font-normal truncate">{participant.lastSeen || 'Offline'}</span>
@@ -131,7 +140,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
           <button
             type="button"
             onClick={() => alert(`Starting simulated audio call with ${participant.name}...`)}
-            className="p-2 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            className="p-2 hover:text-[#00A86B] dark:hover:text-[#00F59B] hover:bg-[#00D285]/10 rounded-xl transition-colors"
             title="Audio Call"
           >
             <Phone className="w-4 h-4" />
@@ -139,7 +148,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
           <button
             type="button"
             onClick={() => alert(`Starting simulated video call with ${participant.name}...`)}
-            className="p-2 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            className="p-2 hover:text-[#00A86B] dark:hover:text-[#00F59B] hover:bg-[#00D285]/10 rounded-xl transition-colors"
             title="Video Call"
           >
             <Video className="w-4 h-4" />
@@ -150,7 +159,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
             id="chat-options-btn"
             type="button"
             onClick={() => setShowMenu((prev) => !prev)}
-            className="p-2 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            className="p-2 hover:text-[#00A86B] dark:hover:text-[#00F59B] hover:bg-[#00D285]/10 rounded-xl transition-colors"
             title="More Options"
           >
             <MoreVertical className="w-4 h-4" />
@@ -160,7 +169,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
           {showMenu && (
             <div
               id="chat-options-menu"
-              className="absolute right-0 top-12 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-sky-100 dark:border-slate-800 py-1.5 z-30 animate-fade-in text-xs"
+              className="absolute right-0 top-12 w-48 bg-white dark:bg-[#111724] rounded-2xl shadow-xl border border-slate-200 dark:border-[#212C42] py-1.5 z-30 animate-fade-in text-xs"
             >
               <button
                 type="button"
@@ -168,13 +177,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
                   setShowMenu(false);
                   setShowContactInfo(true);
                 }}
-                className="w-full px-3.5 py-2.5 flex items-center gap-2 text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-slate-800 transition-colors text-left font-medium"
+                className="w-full px-3.5 py-2.5 flex items-center gap-2 text-slate-700 dark:text-slate-200 hover:bg-[#00D285]/10 hover:text-[#00A86B] dark:hover:text-[#00F59B] transition-colors text-left font-medium"
               >
-                <UserIcon className="w-4 h-4 text-sky-500" />
+                <UserIcon className="w-4 h-4 text-[#00D285]" />
                 <span>Contact Info</span>
               </button>
 
-              <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+              <div className="border-t border-slate-100 dark:border-[#1E2738] my-1" />
 
               <button
                 type="button"
@@ -193,12 +202,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-1 bg-gradient-to-b from-sky-50/20 via-white to-sky-50/10 dark:from-slate-950 dark:via-slate-900/60 dark:to-slate-950">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-1 bg-[#F8FAFC] dark:bg-[#090B10]">
         {/* End-to-end encryption pill */}
         <div className="flex justify-center mb-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-slate-800/80 border border-sky-100 dark:border-slate-700/60 text-[11px] font-medium text-sky-700 dark:text-sky-300 shadow-xs">
-            <ShieldAlert className="w-3 h-3 text-sky-500" />
-            <span>🔒 Ephemeral Privacy • Messages automatically self-destruct on tab reload or exit</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-[#121826] border border-slate-200 dark:border-[#222E42] text-[11px] font-medium text-slate-600 dark:text-slate-300 shadow-xs">
+            <ShieldAlert className="w-3 h-3 text-[#00D285]" />
+            <span>🔒 Ephemeral Privacy • Messages self-destruct on tab reload or exit</span>
           </div>
         </div>
 
@@ -223,10 +232,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
         {isTyping && (
           <div className="flex items-center gap-2 mb-3 animate-fade-in">
             <Avatar name={participant.name} avatar={participant.avatar} size="sm" showBadge={false} />
-            <div className="bg-white dark:bg-slate-800 border border-sky-100 dark:border-slate-700 rounded-2xl rounded-tl-xs px-4 py-3 shadow-xs inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-bounce [animation-delay:-0.3s]" />
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-bounce [animation-delay:-0.15s]" />
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-bounce" />
+            <div className="bg-white dark:bg-[#141A28] border border-slate-200 dark:border-[#222E42] rounded-2xl rounded-tl-xs px-4 py-3 shadow-xs inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#00D285] animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-2 h-2 rounded-full bg-[#00D285] animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-2 h-2 rounded-full bg-[#00D285] animate-bounce" />
             </div>
           </div>
         )}

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../context/AuthContext';
+import { BrainBoxLogo } from '../common/BrainBoxLogo';
 import {
-  MessageSquare, Phone, Mail, User as UserIcon, ArrowRight,
+  Phone, Mail, User as UserIcon, ArrowRight,
   KeyRound, Sparkles, CheckCircle2, ShieldCheck
 } from 'lucide-react';
 
@@ -106,28 +107,30 @@ export const AuthScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-sky-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-sky-950/40 p-4 relative overflow-hidden transition-colors duration-300">
-      {/* Background glows */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-sky-200/50 dark:bg-sky-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-200/40 dark:bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#F8FAFC] dark:bg-[#090B10] p-4 relative overflow-hidden transition-colors duration-300">
+      {/* Background BrainBox ambient glows */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-[#00D285]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#38BDF8]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md z-10">
         {/* Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-600 to-sky-400 text-white shadow-lg shadow-sky-500/25 mb-3 transform hover:scale-105 transition-transform duration-300">
-            <MessageSquare className="w-9 h-9" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-slate-100 dark:bg-[#111726] border border-slate-200 dark:border-[#212C42] shadow-xl shadow-[#00D285]/15 mb-3 transform hover:scale-105 transition-transform duration-300">
+            <BrainBoxLogo size={32} />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center justify-center gap-2">
             VOXA
-            <span className="inline-block w-2 h-2 rounded-full bg-sky-500 animate-ping" />
+            <span className="text-[11px] uppercase font-black px-2 py-0.5 bg-[#00D285]/15 text-[#00A86B] dark:text-[#00F59B] border border-[#00D285]/30 rounded-full">
+              AI PRO
+            </span>
           </h1>
-          <p className="text-sm font-semibold text-sky-600 dark:text-sky-400 tracking-wide mt-1">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase mt-1">
             Talk. Connect. Belong.
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-3xl border border-sky-100 dark:border-slate-800 shadow-xl shadow-sky-950/5 dark:shadow-black/40 p-5 sm:p-8 transition-colors duration-300">
+        <div className="bg-white/95 dark:bg-[#0E1320]/95 backdrop-blur-md rounded-3xl border border-slate-200/80 dark:border-[#1A2233] shadow-2xl shadow-black/20 p-5 sm:p-8 transition-colors duration-300">
           {error && (
             <div className="mb-5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
               <span className="font-semibold text-xs uppercase px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/60">Error</span>
@@ -167,16 +170,16 @@ export const AuthScreen: React.FC = () => {
                       value={digit}
                       onChange={(e) => handleOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(idx, e)}
-                      className="w-10 sm:w-12 h-11 sm:h-13 text-center text-lg sm:text-xl font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all shadow-sm"
+                      className="w-10 sm:w-12 h-11 sm:h-13 text-center text-lg sm:text-xl font-bold bg-slate-100 dark:bg-[#121724] border border-slate-200 dark:border-[#1F2738] text-slate-900 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00D285]/40 focus:border-[#00D285]/40 transition-all shadow-sm"
                     />
                   ))}
                 </div>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-700 hover:to-sky-600 text-white font-semibold rounded-xl shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+                  className="w-full py-3 px-4 bg-[#00D285] hover:bg-[#00BF78] text-slate-950 font-bold rounded-xl shadow-lg shadow-[#00D285]/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
                 >
-                  {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /><span>Verify & Enter VOXA</span></>}
+                  {isLoading ? <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" /> : <><CheckCircle2 className="w-4 h-4 text-slate-950" /><span>Verify & Enter VOXA</span></>}
                 </button>
               </form>
 
@@ -185,7 +188,7 @@ export const AuthScreen: React.FC = () => {
                   Edit details
                 </button>
                 {canResend ? (
-                  <button type="button" onClick={() => handleSendOtp()} className="text-sky-600 dark:text-sky-400 hover:text-sky-800 font-semibold underline">
+                  <button type="button" onClick={() => handleSendOtp()} className="text-[#00A86B] dark:text-[#00F59B] hover:underline font-semibold">
                     Resend Code
                   </button>
                 ) : (
@@ -206,10 +209,10 @@ export const AuthScreen: React.FC = () => {
                 type="button"
                 onClick={() => { setGoogleLoading(true); setError(null); googleLogin(); }}
                 disabled={googleLoading || isLoading}
-                className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-sky-400 dark:hover:border-sky-500 rounded-xl shadow-sm hover:shadow-md transition-all active:scale-[0.98] disabled:opacity-60 group"
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white dark:bg-[#131926] border-2 border-slate-200 dark:border-[#202B3D] hover:border-[#00D285]/50 hover:bg-[#00D285]/5 rounded-xl shadow-sm hover:shadow-md transition-all active:scale-[0.98] disabled:opacity-60 group"
               >
                 {googleLoading ? (
-                  <div className="w-5 h-5 border-2 border-slate-400 border-t-sky-500 rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-slate-400 border-t-[#00D285] rounded-full animate-spin" />
                 ) : (
                   /* Google G icon */
                   <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
@@ -219,16 +222,16 @@ export const AuthScreen: React.FC = () => {
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                   </svg>
                 )}
-                <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm group-hover:text-[#00A86B] dark:group-hover:text-[#00F59B] transition-colors">
                   {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
                 </span>
               </button>
 
               {/* Divider */}
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                <div className="flex-1 h-px bg-slate-200 dark:bg-[#1E2638]" />
                 <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">or sign in with phone</span>
-                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                <div className="flex-1 h-px bg-slate-200 dark:bg-[#1E2638]" />
               </div>
 
               {/* ── OTP Mode Toggle / Form ───────────────────────────────── */}
@@ -236,7 +239,7 @@ export const AuthScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setAuthMode('otp')}
-                  className="w-full py-2.5 text-sm text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 font-medium border border-sky-200 dark:border-sky-800/60 rounded-xl hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2.5 text-sm text-[#00A86B] dark:text-[#00F59B] hover:text-[#007F50] dark:hover:text-white font-medium border border-slate-200 dark:border-[#1F2738] rounded-xl hover:bg-[#00D285]/10 transition-all flex items-center justify-center gap-2"
                 >
                   <Phone className="w-4 h-4" />
                   Use Phone + Email OTP instead
@@ -254,7 +257,7 @@ export const AuthScreen: React.FC = () => {
                         placeholder="e.g. Pawan Kumar"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-[#121724] border border-slate-200 dark:border-[#1F2738] text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00D285]/40 focus:border-[#00D285]/40 transition-all placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -269,7 +272,7 @@ export const AuthScreen: React.FC = () => {
                         placeholder="+91 98765 43210"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-[#121724] border border-slate-200 dark:border-[#1F2738] text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00D285]/40 focus:border-[#00D285]/40 transition-all placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -284,7 +287,7 @@ export const AuthScreen: React.FC = () => {
                         placeholder="you@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-[#121724] border border-slate-200 dark:border-[#1F2738] text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00D285]/40 focus:border-[#00D285]/40 transition-all placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -292,19 +295,19 @@ export const AuthScreen: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full mt-1 py-3 px-4 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-700 hover:to-sky-600 text-white font-semibold rounded-xl shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+                    className="w-full mt-1 py-3 px-4 bg-[#00D285] hover:bg-[#00BF78] text-slate-950 font-bold rounded-xl shadow-lg shadow-[#00D285]/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
                   >
-                    {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><span>Send Verification Code</span><ArrowRight className="w-4 h-4" /></>}
+                    {isLoading ? <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" /> : <><span>Send Verification Code</span><ArrowRight className="w-4 h-4" /></>}
                   </button>
 
                   <div className="flex items-center justify-between pt-1">
-                    <button type="button" onClick={() => setAuthMode('google')} className="text-xs text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors underline">
+                    <button type="button" onClick={() => setAuthMode('google')} className="text-xs text-slate-400 hover:text-[#00A86B] dark:hover:text-[#00F59B] transition-colors underline">
                       Back to Google sign-in
                     </button>
                     <button
                       type="button"
                       onClick={() => { setName('Pawan Kumar'); setPhone('+91 98765 43210'); setEmail('pawan@voxa.app'); }}
-                      className="text-xs text-sky-600 dark:text-sky-400 hover:text-sky-800 font-medium inline-flex items-center gap-1"
+                      className="text-xs text-[#00A86B] dark:text-[#00F59B] hover:underline font-medium inline-flex items-center gap-1"
                     >
                       <Sparkles className="w-3 h-3" /> Demo fill
                     </button>
@@ -317,10 +320,10 @@ export const AuthScreen: React.FC = () => {
 
         {/* Footer */}
         <div className="text-center mt-6 text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-2">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>End-to-end encrypted messaging</span>
+          <ShieldCheck className="w-3.5 h-3.5 text-[#00D285]" />
+          <span>Client-side encrypted messaging</span>
           <span>•</span>
-          <span>VOXA v1.0</span>
+          <span>VOXA AI v1.0</span>
         </div>
       </div>
     </div>

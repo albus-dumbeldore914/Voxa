@@ -6,13 +6,26 @@
   }
   body {
     font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #090B10;
   }
+}
+
+/* BrainBox AI Theme Color Tokens & Gradients */
+:root {
+  --bb-bg-dark: #090B10;
+  --bb-surface-dark: #0E121B;
+  --bb-card-dark: #141A26;
+  --bb-border-dark: #1E2738;
+  --bb-border-light: rgba(255, 255, 255, 0.08);
+  --bb-primary: #00D285;
+  --bb-primary-hover: #00BF78;
+  --bb-cyan: #38BDF8;
 }
 
 /* Custom modern scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -25,7 +38,7 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #1e2638;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -33,7 +46,7 @@
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #2a354c;
 }
 
 /* Custom animations & keyframes */
@@ -47,10 +60,35 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-slide-up {
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 4s ease-in-out infinite;
+}
+
+/* BrainBox AI Glassmorphism & Glow Utilities */
+.brainbox-glow-emerald {
+  box-shadow: 0 0 24px -4px rgba(0, 210, 133, 0.35);
+}
+
+.brainbox-glow-cyan {
+  box-shadow: 0 0 24px -4px rgba(56, 189, 248, 0.35);
+}
+
+.brainbox-card-glass {
+  background: rgba(14, 18, 27, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }

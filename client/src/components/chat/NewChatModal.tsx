@@ -82,11 +82,11 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-sky-100 dark:border-slate-800 shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] transition-colors duration-300">
+      <div className="bg-white dark:bg-[#0E1320] rounded-3xl border border-slate-200 dark:border-[#1A2233] shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85dvh] transition-colors duration-300">
         {/* Header */}
-        <div className="p-4 border-b border-sky-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200/80 dark:border-[#1A2233] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 rounded-xl">
+            <div className="p-2 bg-[#00D285]/15 text-[#00A86B] dark:text-[#00F59B] border border-[#00D285]/30 rounded-xl">
               <MessageSquarePlus className="w-5 h-5" />
             </div>
             <div>
@@ -97,14 +97,14 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1A2233] rounded-xl transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Search Input */}
-        <div className="p-3 border-b border-sky-50 dark:border-slate-800/80">
+        <div className="p-3 border-b border-slate-200/60 dark:border-[#1A2233]">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -114,7 +114,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-[#121724] border border-slate-200 dark:border-[#1F2738] text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00D285]/40 focus:border-[#00D285]/40 focus:bg-white dark:focus:bg-[#151C2C] transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
           </div>
         </div>
@@ -123,17 +123,17 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
         <div className="flex-1 overflow-y-auto p-2">
           {isLoading ? (
             <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-sky-500" />
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#00D285]" />
               Loading registered users...
             </div>
           ) : allUsers.length === 0 ? (
             <div className="py-12 text-center px-4">
-              <div className="w-14 h-14 bg-sky-50 dark:bg-sky-950/40 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Users className="w-7 h-7 text-sky-400 dark:text-sky-500" />
+              <div className="w-14 h-14 bg-slate-100 dark:bg-[#131A28] border border-slate-200 dark:border-[#212C42] rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Users className="w-7 h-7 text-[#00D285]" />
               </div>
               <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">No other users registered yet</p>
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs mx-auto">
-                Have your friend log in with their phone & email on VOXA — they will immediately show up here!
+                Have your friend log in on VOXA — they will immediately show up here!
               </p>
             </div>
           ) : filteredUsers.length === 0 ? (
@@ -153,12 +153,12 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
                   key={u.id}
                   type="button"
                   onClick={() => handleSelect(u)}
-                  className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-sky-50 dark:hover:bg-slate-800 transition-all text-left group active:scale-[0.98]"
+                  className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-[#00D285]/10 dark:hover:bg-[#131A28] transition-all text-left group active:scale-[0.98]"
                 >
                   <div className="flex items-center gap-3">
                     <Avatar name={u.name} avatar={u.avatar} isOnline={u.isOnline} size="md" />
                     <div>
-                      <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm group-hover:text-sky-700 dark:group-hover:text-sky-400 transition-colors">
+                      <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm group-hover:text-[#00A86B] dark:group-hover:text-[#00F59B] transition-colors">
                         {u.name}
                       </h4>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -169,7 +169,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ isOpen, onClose, onS
                       {u.bio && <p className="text-[11px] text-slate-400 italic mt-0.5">{u.bio}</p>}
                     </div>
                   </div>
-                  <div className="p-2 bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <div className="p-2 bg-[#00D285]/15 text-[#00A86B] dark:text-[#00F59B] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <UserPlus className="w-4 h-4" />
                   </div>
                 </button>

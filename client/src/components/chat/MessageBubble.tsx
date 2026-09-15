@@ -13,8 +13,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOutgoin
       <div
         className={`max-w-[88%] sm:max-w-[78%] md:max-w-[65%] rounded-2xl px-3.5 sm:px-4 py-2 sm:py-2.5 shadow-sm text-sm relative transition-all ${
           isOutgoing
-            ? 'bg-gradient-to-br from-sky-600 to-sky-500 text-white rounded-tr-xs shadow-sky-600/10'
-            : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-sky-100 dark:border-slate-700/80 rounded-tl-xs shadow-slate-100 dark:shadow-none'
+            ? 'bg-gradient-to-r from-[#00D285] to-[#00A86B] text-slate-950 font-semibold rounded-tr-xs shadow-md shadow-[#00D285]/20'
+            : 'bg-white dark:bg-[#131926] text-slate-900 dark:text-slate-100 border border-slate-200/80 dark:border-[#212C40] rounded-tl-xs shadow-xs'
         }`}
       >
         {/* Media Preview if attached */}
@@ -34,7 +34,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOutgoin
         {/* Timestamp & Read Receipt */}
         <div
           className={`flex items-center justify-end gap-1 mt-1 text-[11px] font-medium ${
-            isOutgoing ? 'text-sky-100' : 'text-slate-400 dark:text-slate-400'
+            isOutgoing ? 'text-slate-900/70' : 'text-slate-400 dark:text-slate-500'
           }`}
         >
           <span>{message.createdAt}</span>

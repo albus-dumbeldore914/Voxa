@@ -40,16 +40,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage }) => 
   };
 
   return (
-    <div className="p-2.5 sm:p-3 md:p-4 pb-[calc(0.625rem+env(safe-area-inset-bottom,0px))] sm:pb-3 md:pb-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-sky-100 dark:border-slate-800 relative transition-colors duration-300 shrink-0">
+    <div className="p-2.5 sm:p-3 md:p-4 pb-[calc(0.625rem+env(safe-area-inset-bottom,0px))] sm:pb-3 md:pb-4 bg-white/90 dark:bg-[#0E1320]/95 backdrop-blur-md border-t border-slate-200/80 dark:border-[#1A2233] relative transition-colors duration-300 shrink-0">
       {/* Emoji Picker Popup */}
       {showEmoji && (
-        <div className="absolute bottom-full left-2 right-2 sm:left-4 sm:right-auto mb-2 p-3 bg-white dark:bg-slate-800 border border-sky-100 dark:border-slate-700 rounded-2xl shadow-xl shadow-sky-950/10 dark:shadow-black/40 flex flex-wrap gap-2 max-w-full sm:max-w-xs z-30 animate-slide-up">
+        <div className="absolute bottom-full left-2 right-2 sm:left-4 sm:right-auto mb-2 p-3 bg-white dark:bg-[#121724] border border-slate-200 dark:border-[#1F2738] rounded-2xl shadow-xl shadow-black/30 flex flex-wrap gap-2 max-w-full sm:max-w-xs z-30 animate-slide-up">
           {COMMON_EMOJIS.map((emoji) => (
             <button
               key={emoji}
               type="button"
               onClick={() => handleAddEmoji(emoji)}
-              className="text-xl hover:scale-125 active:scale-95 transition-transform p-2 rounded-lg hover:bg-sky-50 dark:hover:bg-slate-700 touch-manipulation"
+              className="text-xl hover:scale-125 active:scale-95 transition-transform p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1A2233] touch-manipulation"
             >
               {emoji}
             </button>
@@ -59,7 +59,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage }) => 
 
       {/* Image URL preview badge if attached */}
       {imageUrl && (
-        <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 rounded-xl text-xs text-sky-700 dark:text-sky-300">
+        <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 bg-[#00D285]/10 dark:bg-[#00D285]/15 border border-[#00D285]/30 rounded-xl text-xs text-[#00A86B] dark:text-[#00F59B]">
           <ImageIcon className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate max-w-[180px] sm:max-w-[240px]">Image attached</span>
           <button
@@ -80,7 +80,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage }) => 
             const sample = prompt('Enter Image URL to attach (or leave blank to cancel):', 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=600&auto=format&fit=crop&q=80');
             if (sample) setImageUrl(sample);
           }}
-          className="p-2 sm:p-2.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+          className="p-2 sm:p-2.5 text-slate-400 hover:text-[#00A86B] dark:hover:text-[#00F59B] hover:bg-[#00D285]/10 rounded-xl transition-colors shrink-0"
           title="Attach Image"
         >
           <Paperclip className="w-5 h-5" />
@@ -91,7 +91,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage }) => 
           type="button"
           onClick={() => setShowEmoji(!showEmoji)}
           className={`p-2 sm:p-2.5 rounded-xl transition-colors shrink-0 ${
-            showEmoji ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-slate-800' : 'text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800'
+            showEmoji ? 'text-[#00A86B] dark:text-[#00F59B] bg-[#00D285]/10' : 'text-slate-400 hover:text-[#00A86B] dark:hover:text-[#00F59B] hover:bg-[#00D285]/10'
           }`}
           title="Insert Emoji"
         >
@@ -107,7 +107,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage }) => 
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full pl-3.5 sm:pl-4 pr-3.5 sm:pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+            className="w-full pl-3.5 sm:pl-4 pr-3.5 sm:pr-4 py-2.5 bg-slate-100 dark:bg-[#121724] border border-slate-200 dark:border-[#1F2738] text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00D285]/40 focus:border-[#00D285]/40 focus:bg-white dark:focus:bg-[#151C2C] transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
         </div>
 
@@ -115,7 +115,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage }) => 
         <button
           type="submit"
           disabled={!content.trim() && !imageUrl}
-          className="p-2.5 sm:p-2.5 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-700 hover:to-sky-600 disabled:opacity-40 disabled:hover:from-sky-600 disabled:hover:to-sky-500 text-white rounded-xl shadow-md shadow-sky-500/20 active:scale-90 transition-all flex items-center justify-center shrink-0"
+          className="p-2.5 sm:p-2.5 bg-[#00D285] hover:bg-[#00BF78] disabled:opacity-30 disabled:hover:bg-[#00D285] text-slate-950 font-bold rounded-xl shadow-md shadow-[#00D285]/20 active:scale-90 transition-all flex items-center justify-center shrink-0"
           title="Send message"
         >
           <Send className="w-5 h-5" />
