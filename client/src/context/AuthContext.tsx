@@ -16,6 +16,7 @@ interface AuthContextType {
     message: string;
   }>;
   verifyOtp: (identifier: string, code: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
 }
@@ -83,26 +84,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const name = pendingCredentials?.name || '';
 
     try {
-      const response = await apiClient.post('/auth/verify-otp', {
-        phone,
-        email,
-        name,
-        code,
-      });
-
+      const response = await apiClient.post('/auth/verify-otp', { phone, email, name, code });
       const { token, user: authedUser } = response.data;
       localStorage.setItem('voxa_token', token);
       setUser(authedUser);
       setShowWelcome(true);
       setIsLoading(false);
       setPendingCredentials(null);
-
       return { success: true, message: 'Verification successful!' };
     } catch (err: any) {
       setIsLoading(false);
       return {
         success: false,
         message: err.response?.data?.error || 'Invalid or expired OTP code. Please check and retry.',
+      };
+    }
+  };
+
+  // ─── Google OAuth Login ───────────────────────────────────────────────────
+  const loginWithGoogle = async (credential: string) => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.post('/auth/google', { credential });
+      const { token, user: authedUser } = response.data;
+      localStorage.setItem('voxa_token', token);
+      setUser(authedUser);
+      setShowWelcome(true);
+      setIsLoading(false);
+      return { success: true, message: 'Google sign-in successful!' };
+    } catch (err: any) {
+      setIsLoading(false);
+      return {
+        success: false,
+        message: err.response?.data?.error || 'Google sign-in failed. Please try again.',
       };
     }
   };
@@ -139,6 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setShowWelcome,
         sendOtp,
         verifyOtp,
+        loginWithGoogle,
         logout,
         updateProfile,
       }}

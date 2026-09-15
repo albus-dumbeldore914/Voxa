@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { sounds } from '../utils/sound';
 import { apiClient } from '../api/apiClient';
 import { getSocket } from '../api/socketClient';
+import { encryptMessage, decryptMessage } from '../utils/crypto';
 
 interface ChatContextType {
   conversations: Conversation[];
@@ -24,6 +25,18 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
+// Helper: wipe a conversation's messages from the DB (fire-and-forget)
+function wipeConversationFromDB(convId: string) {
+  const token = localStorage.getItem('voxa_token');
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  if (!convId || !token) return;
+  fetch(`${apiUrl}/chat/conversations/${convId}/messages`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+    keepalive: true,
+  }).catch(() => {});
+}
+
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -35,13 +48,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const activeConvRef = useRef<string | null>(null);
   activeConvRef.current = activeConversationId;
 
-  // Track temp IDs for messages we sent optimistically, so socket echo replaces them instead of duplicating
+  // Track temp IDs of optimistically-added messages so the server echo replaces them
   const pendingTempIds = useRef<Set<string>>(new Set());
+
+  // Track sent message IDs to avoid double-processing the server echo
+  const sentMessageIds = useRef<Set<string>>(new Set());
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
   const messages = activeConversationId ? allMessages[activeConversationId] || [] : [];
 
-  // Fetch all conversations from backend
+  // ─── Fetch conversations ───────────────────────────────────────────────────
   const refreshConversations = useCallback(async () => {
     if (!user) return;
     try {
@@ -64,26 +80,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.id, refreshConversations]);
 
-  // 🔒 EPHEMERAL PRIVACY: Clear chat on tab close or page reload
+  // ─── 🔒 Ephemeral Privacy: wipe DB on tab close / page reload ─────────────
   useEffect(() => {
     const handleBeforeUnload = () => {
       const convId = activeConvRef.current;
-      const token = localStorage.getItem('voxa_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-      if (convId && token) {
-        // Securely wipe the active conversation messages from the database on exit
-        try {
-          fetch(`${apiUrl}/chat/conversations/${convId}/messages`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            keepalive: true,
-          });
-        } catch {}
-      }
+      if (convId) wipeConversationFromDB(convId);
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -95,87 +96,96 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Socket.IO real-time event listeners
+  // ─── Socket.IO real-time events ───────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
     const socket = getSocket();
 
-    // Join active conversation room if set
     if (activeConversationId) {
       socket.emit('join_conversation', activeConversationId);
     }
 
-    const handleReceiveMessage = (msg: Message & { tempId?: string }) => {
-      console.log('[Socket.IO] ✉️ Received message:', msg.id, '| sender:', msg.senderId, '| me:', user.id);
+    const handleReceiveMessage = async (msg: Message & { tempId?: string | null }) => {
+      console.log('[Socket] receive_message', msg.id, '| from:', msg.senderId, '| me:', user.id);
 
+      // ── Decrypt the message content ──────────────────────────────────────
+      let plainContent = msg.content;
+      try {
+        plainContent = await decryptMessage(msg.content, msg.conversationId);
+      } catch {}
+      const decryptedMsg: Message = { ...msg, content: plainContent };
+
+      // ── OWN message echoed back from server: replace optimistic temp ──────
       if (msg.senderId === user.id) {
-        // This is our own message echoed back from the server with the real DB id.
-        // Replace the optimistic temp message instead of adding a duplicate.
         const tempId = msg.tempId;
         if (tempId) pendingTempIds.current.delete(tempId);
 
+        // Skip if we've already processed this real message ID
+        if (sentMessageIds.current.has(msg.id)) return;
+        sentMessageIds.current.add(msg.id);
+
         setAllMessages((prev) => {
-          const existingList = prev[msg.conversationId] || [];
-          // If a message with this real id already exists, skip
-          if (existingList.some((m) => m.id === msg.id)) return prev;
-          // Replace the temp message if it exists, otherwise skip (already cleaned up)
-          const idx = tempId ? existingList.findIndex((m) => m.id === tempId) : -1;
+          const list = prev[msg.conversationId] || [];
+          // Already in list (real ID) → skip
+          if (list.some((m) => m.id === msg.id)) return prev;
+          // Find and replace the temp message
+          const idx = tempId ? list.findIndex((m) => m.id === tempId) : -1;
           if (idx !== -1) {
-            const updated = [...existingList];
-            updated[idx] = msg;
+            const updated = [...list];
+            updated[idx] = decryptedMsg;
             return { ...prev, [msg.conversationId]: updated };
           }
-          // No temp found — still don't duplicate, just return as-is
+          // Temp already cleaned up or not found — don't add duplicate
           return prev;
         });
-        return; // Don't play chime or emit delivery for own messages
+
+        // Update sidebar preview with plaintext
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === msg.conversationId
+              ? { ...c, lastMessage: decryptedMsg, updatedAt: new Date().toISOString() }
+              : c
+          )
+        );
+        return;
       }
 
-      // Incoming message from the OTHER user
+      // ── Incoming message from the OTHER user ─────────────────────────────
       sounds.playReceived();
 
-      // Acknowledge delivery immediately so sender sees Delivered (✓✓)
+      // Acknowledge delivery so sender sees ✓✓
       socket.emit('message_delivered', {
         messageId: msg.id,
         conversationId: msg.conversationId,
         senderId: msg.senderId,
       });
 
-      // Append message to store (deduplicate by id)
+      // Deduplicate by real ID
       setAllMessages((prev) => {
-        const existingList = prev[msg.conversationId] || [];
-        if (existingList.some((m) => m.id === msg.id)) {
-          return prev;
-        }
-        return {
-          ...prev,
-          [msg.conversationId]: [...existingList, msg],
-        };
+        const list = prev[msg.conversationId] || [];
+        if (list.some((m) => m.id === msg.id)) return prev;
+        return { ...prev, [msg.conversationId]: [...list, decryptedMsg] };
       });
 
-      // 3. Update conversation list preview & order
+      // Update conversation sidebar
       setConversations((prev) => {
-        const index = prev.findIndex((c) => c.id === msg.conversationId);
-        if (index === -1) {
+        const idx = prev.findIndex((c) => c.id === msg.conversationId);
+        if (idx === -1) {
           refreshConversations();
           return prev;
         }
-
-        const targetConv = prev[index];
-        const isCurrentActive = targetConv.id === activeConversationId;
-        const updatedConv: Conversation = {
-          ...targetConv,
-          lastMessage: msg,
-          unreadCount: isCurrentActive ? 0 : targetConv.unreadCount + 1,
+        const conv = prev[idx];
+        const updated: Conversation = {
+          ...conv,
+          lastMessage: decryptedMsg,
+          unreadCount: conv.id === activeConversationId ? 0 : conv.unreadCount + 1,
           updatedAt: new Date().toISOString(),
         };
-
-        const filtered = prev.filter((c) => c.id !== msg.conversationId);
-        return [updatedConv, ...filtered];
+        return [updated, ...prev.filter((c) => c.id !== msg.conversationId)];
       });
 
-      // 4. If this chat is currently open, auto-mark as read so sender sees Blue Ticks (🔵✓✓)
-      if (msg.conversationId === activeConversationId && msg.senderId !== user.id) {
+      // Auto-mark as read if this conversation is currently open
+      if (msg.conversationId === activeConversationId) {
         try {
           apiClient.patch(`/chat/conversations/${activeConversationId}/read`);
           socket.emit('message_read', { conversationId: activeConversationId, readerId: user.id });
@@ -184,15 +194,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const handleNewConversation = (newConv: Conversation) => {
-      console.log('[Socket.IO] 🤝 New conversation started with:', newConv.participant.name);
       setConversations((prev) => {
         if (prev.some((c) => c.id === newConv.id)) return prev;
         return [newConv, ...prev];
       });
     };
 
-    const handleMessageStatusUpdated = (data: { messageId: string; conversationId: string; status: 'DELIVERED' | 'READ' }) => {
-      console.log(`[Socket.IO] ✓✓ Message status updated: ${data.messageId} -> ${data.status}`);
+    const handleMessageStatusUpdated = (data: {
+      messageId: string;
+      conversationId: string;
+      status: 'DELIVERED' | 'READ';
+    }) => {
       setAllMessages((prev) => {
         const list = prev[data.conversationId] || [];
         return {
@@ -213,7 +225,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const handleMessagesRead = (data: { conversationId: string; readerId: string }) => {
-      console.log('[Socket.IO] 🔵✓✓ Messages marked READ by:', data.readerId);
       setAllMessages((prev) => {
         const list = prev[data.conversationId] || [];
         return {
@@ -223,7 +234,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ),
         };
       });
-
       setConversations((prev) =>
         prev.map((c) =>
           c.id === data.conversationId && c.lastMessage && c.lastMessage.senderId !== data.readerId
@@ -233,33 +243,35 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
     };
 
-    const handleConversationUpdated = (data: { conversationId: string; lastMessage: Message }) => {
+    const handleConversationUpdated = async (data: {
+      conversationId: string;
+      lastMessage: Message;
+    }) => {
+      // Decrypt the preview text
+      let preview = data.lastMessage;
+      try {
+        const plain = await decryptMessage(data.lastMessage.content, data.conversationId);
+        preview = { ...data.lastMessage, content: plain };
+      } catch {}
+
       setConversations((prev) => {
-        const exists = prev.some((c) => c.id === data.conversationId);
-        if (!exists) {
+        if (!prev.some((c) => c.id === data.conversationId)) {
           refreshConversations();
           return prev;
         }
         return prev.map((c) =>
           c.id === data.conversationId
-            ? { ...c, lastMessage: data.lastMessage, updatedAt: new Date().toISOString() }
+            ? { ...c, lastMessage: preview, updatedAt: new Date().toISOString() }
             : c
         );
       });
     };
 
-    const handleChatCleared = (data: { conversationId: string; clearedBy: string }) => {
-      console.log('[Socket.IO] 🗑️ Chat cleared event received for:', data.conversationId);
-      setAllMessages((prev) => ({
-        ...prev,
-        [data.conversationId]: [],
-      }));
-
+    const handleChatCleared = (data: { conversationId: string }) => {
+      setAllMessages((prev) => ({ ...prev, [data.conversationId]: [] }));
       setConversations((prev) =>
         prev.map((c) =>
-          c.id === data.conversationId
-            ? { ...c, lastMessage: null, unreadCount: 0 }
-            : c
+          c.id === data.conversationId ? { ...c, lastMessage: null, unreadCount: 0 } : c
         )
       );
     };
@@ -278,13 +290,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleUserOnline = (data: { userId: string }) => {
       setConversations((prev) =>
-        prev.map((c) => (c.participant.id === data.userId ? { ...c, participant: { ...c.participant, isOnline: true } } : c))
+        prev.map((c) =>
+          c.participant.id === data.userId
+            ? { ...c, participant: { ...c.participant, isOnline: true } }
+            : c
+        )
       );
     };
 
     const handleUserOffline = (data: { userId: string }) => {
       setConversations((prev) =>
-        prev.map((c) => (c.participant.id === data.userId ? { ...c, participant: { ...c.participant, isOnline: false } } : c))
+        prev.map((c) =>
+          c.participant.id === data.userId
+            ? { ...c, participant: { ...c.participant, isOnline: false } }
+            : c
+        )
       );
     };
 
@@ -316,10 +336,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [user, activeConversationId, refreshConversations]);
 
+  // ─── Select conversation (clears previous conv locally + from DB) ──────────
   const selectConversation = (conversationId: string) => {
+    const previousId = activeConvRef.current;
+
+    // 🔒 EPHEMERAL: clear previous conversation from local state AND database
+    if (previousId && previousId !== conversationId) {
+      setAllMessages((prev) => ({ ...prev, [previousId]: [] }));
+      wipeConversationFromDB(previousId);
+    }
+
     setActiveConversationId(conversationId);
     markAsRead(conversationId);
-    // In ephemeral mode, messages exist in live memory and clear on reload/close
   };
 
   const markAsRead = (conversationId: string) => {
@@ -351,87 +379,76 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userName: user.name,
       });
     } else {
-      socket.emit('typing_stop', {
-        conversationId: activeConversationId,
-        userId: user.id,
-      });
+      socket.emit('typing_stop', { conversationId: activeConversationId, userId: user.id });
     }
   };
 
+  // ─── Send message (encrypted) ─────────────────────────────────────────────
   const sendMessage = async (content: string, mediaUrl?: string) => {
     if (!activeConversation || !user) return;
     sounds.playSent();
 
-    const tempId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    const tempId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+
+    // Show plaintext in our own UI immediately (optimistic)
     const tempMsg: Message = {
       id: tempId,
       conversationId: activeConversation.id,
       senderId: user.id,
-      content,
+      content, // plain text in local UI
       mediaUrl,
       mediaType: mediaUrl ? 'image' : undefined,
       status: activeConversation.participant.isOnline ? 'DELIVERED' : 'SENT',
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    // Track this temp ID so when the socket echoes back the real message we replace it
     pendingTempIds.current.add(tempId);
 
-    // Optimistic UI update
     setAllMessages((prev) => ({
       ...prev,
       [activeConversation.id]: [...(prev[activeConversation.id] || []), tempMsg],
     }));
-
     setConversations((prev) => {
       const filtered = prev.filter((c) => c.id !== activeConversation.id);
-      const updated: Conversation = {
-        ...activeConversation,
-        lastMessage: tempMsg,
-        updatedAt: new Date().toISOString(),
-      };
-      return [updated, ...filtered];
+      return [{ ...activeConversation, lastMessage: tempMsg, updatedAt: new Date().toISOString() }, ...filtered];
     });
 
-    // Only emit via Socket.IO — server persists to DB and broadcasts receive_message
-    // Do NOT also call REST API — that causes duplicate messages
+    // 🔒 Encrypt content before sending to server
+    const encryptedContent = await encryptMessage(content, activeConversation.id);
+
+    // Send via Socket.IO only (server persists to DB, echoes back with real ID)
     const socket = getSocket();
     socket.emit('send_message', {
       conversationId: activeConversation.id,
       senderId: user.id,
-      content,
+      content: encryptedContent,
       mediaUrl,
-      tempId, // Pass tempId so we can match the echo back
+      tempId,
     });
   };
 
+  // ─── Clear chat ────────────────────────────────────────────────────────────
   const clearChat = async (conversationId: string) => {
     if (!user || !conversationId) return;
 
-    // 1. Optimistically clear local state
-    setAllMessages((prev) => ({
-      ...prev,
-      [conversationId]: [],
-    }));
-
+    setAllMessages((prev) => ({ ...prev, [conversationId]: [] }));
     setConversations((prev) =>
       prev.map((c) =>
         c.id === conversationId ? { ...c, lastMessage: null, unreadCount: 0 } : c
       )
     );
 
-    // 2. Emit clear_chat event to Socket.IO (clears real-time for other participant)
     const socket = getSocket();
     socket.emit('clear_chat', { conversationId, userId: user.id });
 
-    // 3. Delete from database
     try {
       await apiClient.delete(`/chat/conversations/${conversationId}/messages`);
     } catch (err) {
-      console.error('[ChatContext] Failed to clear chat history in database:', err);
+      console.error('[ChatContext] Failed to clear chat:', err);
     }
   };
 
+  // ─── Start new conversation ────────────────────────────────────────────────
   const startNewConversation = async (targetUser: User) => {
     const existing = conversations.find((c) => c.participant.id === targetUser.id);
     if (existing) {
@@ -440,10 +457,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await apiClient.post('/chat/conversations', {
-        targetUserId: targetUser.id,
-      });
-
+      const res = await apiClient.post('/chat/conversations', { targetUserId: targetUser.id });
       if (res.data?.conversation) {
         const newConv = res.data.conversation;
         setConversations((prev) => [newConv, ...prev.filter((c) => c.id !== newConv.id)]);
@@ -455,7 +469,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('[ChatContext] Failed to create conversation:', err);
     }
 
-    // Fallback local creation
+    // Fallback
     const newConvId = `conv-${Date.now()}`;
     const newConv: Conversation = {
       id: newConvId,
@@ -468,6 +482,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     selectConversation(newConvId);
   };
 
+  // ─── Search users ─────────────────────────────────────────────────────────
   const searchUsers = async (query: string): Promise<User[]> => {
     if (!query.trim()) return [];
     try {
