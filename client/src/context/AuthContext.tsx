@@ -114,10 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true, message: 'Google sign-in successful!' };
     } catch (err: any) {
       setIsLoading(false);
-      return {
-        success: false,
-        message: err.response?.data?.error || 'Google sign-in failed. Please try again.',
-      };
+      const msg = err.response?.data?.error || err.message || 'Google sign-in failed. Please try again.';
+      console.error('[AuthContext] Google auth error:', msg, err);
+      return { success: false, message: msg };
     }
   };
 

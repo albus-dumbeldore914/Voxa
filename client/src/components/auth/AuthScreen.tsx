@@ -39,8 +39,9 @@ export const AuthScreen: React.FC = () => {
       if (!res.success) {
         setError(res.message);
       }
-    } catch {
-      setError('Google sign-in failed. Please try again.');
+    } catch (err: any) {
+      console.error('[Google Auth] Error:', err);
+      setError(err?.message || 'Google sign-in failed. Please try again.');
     } finally {
       setGoogleLoading(false);
     }
