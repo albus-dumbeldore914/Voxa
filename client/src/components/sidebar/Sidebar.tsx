@@ -187,15 +187,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSelectMobileChat }) => {
       </div>
 
       {/* Bottom Status / Profile Shortcut */}
-      <div className="p-3 border-t border-sky-100 dark:border-slate-800 bg-sky-50/30 dark:bg-slate-900/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+      <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-sky-100 dark:border-slate-800 bg-sky-50/30 dark:bg-slate-900/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-2 truncate">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
           <span className="truncate font-medium text-slate-600 dark:text-slate-300">{user?.name}</span>
         </div>
         <button
           type="button"
           onClick={() => setShowProfile(true)}
-          className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 font-semibold text-[11px] flex items-center gap-1"
+          className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 font-semibold text-[11px] flex items-center gap-1 shrink-0 p-1"
         >
           <Settings className="w-3.5 h-3.5" /> Settings
         </button>
@@ -205,7 +205,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSelectMobileChat }) => {
       <NewChatModal
         isOpen={showNewChat}
         onClose={() => setShowNewChat(false)}
-        onSelectUser={(u) => startNewConversation(u)}
+        onSelectUser={(u) => {
+          startNewConversation(u);
+          if (onSelectMobileChat) onSelectMobileChat();
+        }}
       />
 
       <ProfileModal

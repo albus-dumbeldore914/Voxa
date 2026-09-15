@@ -127,7 +127,7 @@ export const AuthScreen: React.FC = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-3xl border border-sky-100 dark:border-slate-800 shadow-xl shadow-sky-950/5 dark:shadow-black/40 p-8 transition-colors duration-300">
+        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-3xl border border-sky-100 dark:border-slate-800 shadow-xl shadow-sky-950/5 dark:shadow-black/40 p-5 sm:p-8 transition-colors duration-300">
           {error && (
             <div className="mb-5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
               <span className="font-semibold text-xs uppercase px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/60">Error</span>
@@ -156,7 +156,7 @@ export const AuthScreen: React.FC = () => {
               </div>
 
               <form onSubmit={handleVerify}>
-                <div className="flex justify-between gap-2 mb-4" onPaste={handlePasteOtp}>
+                <div className="flex justify-between gap-1.5 sm:gap-2 mb-4" onPaste={handlePasteOtp}>
                   {otp.map((digit, idx) => (
                     <input
                       key={idx}
@@ -167,7 +167,7 @@ export const AuthScreen: React.FC = () => {
                       value={digit}
                       onChange={(e) => handleOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(idx, e)}
-                      className="w-12 h-13 text-center text-xl font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all shadow-sm"
+                      className="w-10 sm:w-12 h-11 sm:h-13 text-center text-lg sm:text-xl font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all shadow-sm"
                     />
                   ))}
                 </div>
@@ -254,7 +254,7 @@ export const AuthScreen: React.FC = () => {
                         placeholder="e.g. Pawan Kumar"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -269,7 +269,7 @@ export const AuthScreen: React.FC = () => {
                         placeholder="+91 98765 43210"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -284,7 +284,7 @@ export const AuthScreen: React.FC = () => {
                         placeholder="you@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all placeholder:text-slate-400"
                       />
                     </div>
                   </div>

@@ -81,42 +81,45 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
   return (
     <div className="flex-1 h-full flex flex-col bg-[#fcfdfe] dark:bg-slate-950 relative overflow-hidden transition-colors duration-300">
       {/* Active Conversation Top Header */}
-      <div className="h-16 px-4 md:px-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 flex items-center justify-between z-20">
-        <div className="flex items-center gap-3">
+      <div className="h-16 px-3 sm:px-4 md:px-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 flex items-center justify-between z-20 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 mr-2">
           {onBackToSidebar && (
             <button
               type="button"
               onClick={onBackToSidebar}
-              className="md:hidden p-1.5 -ml-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+              className="md:hidden p-2 -ml-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+              aria-label="Back to conversations"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
 
           <div
-            className="cursor-pointer flex items-center gap-3"
+            className="cursor-pointer flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1"
             onClick={() => setShowContactInfo(true)}
             title="View contact info"
           >
-            <Avatar
-              name={participant.name}
-              avatar={participant.avatar}
-              isOnline={participant.isOnline}
-              size="md"
-            />
+            <div className="shrink-0">
+              <Avatar
+                name={participant.name}
+                avatar={participant.avatar}
+                isOnline={participant.isOnline}
+                size="md"
+              />
+            </div>
 
-            <div>
-              <h2 className="font-bold text-slate-900 dark:text-slate-100 leading-tight text-sm md:text-base hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-bold text-slate-900 dark:text-slate-100 leading-tight text-sm sm:text-base hover:text-sky-600 dark:hover:text-sky-400 transition-colors truncate">
                 {participant.name}
               </h2>
-              <p className="text-xs flex items-center gap-1.5">
+              <p className="text-[11px] sm:text-xs flex items-center gap-1.5 truncate">
                 {participant.isOnline ? (
                   <>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">Online</span>
                   </>
                 ) : (
-                  <span className="text-slate-400 dark:text-slate-500 font-normal">{participant.lastSeen || 'Offline'}</span>
+                  <span className="text-slate-400 dark:text-slate-500 font-normal truncate">{participant.lastSeen || 'Offline'}</span>
                 )}
               </p>
             </div>
@@ -124,7 +127,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
         </div>
 
         {/* Quick Action Icons & Dropdown Menu */}
-        <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 relative">
+        <div className="flex items-center gap-0.5 sm:gap-1 text-slate-500 dark:text-slate-400 relative shrink-0">
           <button
             type="button"
             onClick={() => alert(`Starting simulated audio call with ${participant.name}...`)}
@@ -237,7 +240,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
       {/* Clear Chat Confirmation Modal */}
       {showConfirmClear && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-red-100 dark:border-red-950 shadow-2xl w-full max-w-sm p-6 text-center">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-red-100 dark:border-red-950 shadow-2xl w-full max-w-sm p-5 sm:p-6 text-center max-h-[90dvh] overflow-y-auto">
             <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-3">
               <AlertTriangle className="w-6 h-6" />
             </div>
@@ -269,7 +272,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBackToSidebar }) => {
       {/* Contact Info Modal */}
       {showContactInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-sky-100 dark:border-slate-800 shadow-2xl w-full max-w-sm p-6 relative">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-sky-100 dark:border-slate-800 shadow-2xl w-full max-w-sm p-5 sm:p-6 relative max-h-[90dvh] overflow-y-auto">
             <button
               type="button"
               onClick={() => setShowContactInfo(false)}

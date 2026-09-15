@@ -29,19 +29,19 @@ const MainLayout: React.FC = () => {
       )}
 
       <ChatProvider>
-        <div className="h-screen w-screen flex bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden select-none transition-colors duration-300">
-          {/* Sidebar: Always visible on desktop, toggleable on mobile */}
+        <div className="h-[100dvh] w-screen flex bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden select-none transition-colors duration-300">
+          {/* Sidebar: full screen on mobile, fixed width on desktop */}
           <div
-            className={`h-full w-full md:w-80 lg:w-96 ${
+            className={`h-full flex-shrink-0 w-full md:w-80 lg:w-96 ${
               mobileView === 'chat' ? 'hidden md:flex' : 'flex'
             }`}
           >
             <Sidebar onSelectMobileChat={() => setMobileView('chat')} />
           </div>
 
-          {/* Chat Area: Hidden on mobile when viewing sidebar */}
+          {/* Chat Area: hidden on mobile sidebar view */}
           <div
-            className={`h-full flex-1 ${
+            className={`h-full flex-1 min-w-0 ${
               mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'
             }`}
           >
